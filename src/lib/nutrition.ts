@@ -1,0 +1,73 @@
+import type { DiaryEntry, Food, Profile } from '../db'
+
+export function todayKey(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+export function shiftDay(key: string, delta: number) {
+  const [y, m, d] = key.split('-').map(Number)
+  return todayKey(new Date(y, m - 1, d + delta))
+}
+
+/** Mifflin-St Jeor ile bazal metabolizma ve hedefler. */
+export function targets(p: Profile) {
+  const bmr = 10 * p.bodyweight + 6.25 * p.height - 5 * p.age + (p.sex === 'm' ? 5 : -161)
+  const tdee = bmr * p.activity
+  const adj = p.goal === 'cut' ? -450 : p.goal === 'bulk' ? 250 : 0
+  const kcal = p.kcalTarget || Math.round((tdee + adj) / 10) * 10
+  const protein = p.proteinTarget || Math.round(p.bodyweight * (p.goal === 'cut' ? 2.1 : 1.8))
+  const fat = p.fatTarget || Math.round(p.bodyweight * 0.8)
+  const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4))
+  return { bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, protein, fat, carbs }
+}
+
+export function portion(food: Food, grams: number) {
+  const k = grams / 100
+  const r = (x: number) => Math.round(x * k * 10) / 10
+  return { kcal: Math.round(food.kcal * k), p: r(food.p), c: r(food.c), f: r(food.f) }
+}
+
+export function sumEntries(es: DiaryEntry[]) {
+  return es.reduce((t, e) => ({ kcal: t.kcal + e.kcal, p: t.p + e.p, c: t.c + e.c, f: t.f + e.f }), { kcal: 0, p: 0, c: 0, f: 0 })
+}
+
+export const MEALS = [
+  { id: 'kahvalti', name: 'Kahvaltı' },
+  { id: 'ogle', name: 'Öğle' },
+  { id: 'aksam', name: 'Akşam' },
+  { id: 'ara', name: 'Ara öğün' }
+] as const
+
+export function normalizeTr(s: string) {
+  return s.toLocaleLowerCase('tr').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+}
+
+/** Open Food Facts'ten barkodla ürün getirir (telefonda internet varken). */
+export async function fetchOffProduct(barcode: string): Promise<Food | null> {
+  const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=code,product_name,product_name_tr,brands,nutriments,serving_quantity,serving_size`)
+  if (!res.ok) return null
+  const j = await res.json()
+  return j?.product ? offToFood(j.product) : null
+}
+
+export async function searchOff(q: string): Promise<Food[]> {
+  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&json=1&page_size=30&countries_tags_en=turkey&fields=code,product_name,product_name_tr,brands,nutriments,serving_quantity,serving_size`
+  const res = await fetch(url)
+  if (!res.ok) return []
+  const j = await res.json()
+  return (j?.products ?? []).map(offToFood).filter(Boolean) as Food[]
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function offToFood(p: any): Food | null {
+  const n = p.nutriments ?? {}
+  const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g'] / 4.184 : undefined)
+  const name = p.product_name_tr || p.product_name
+  if (kcal == null || !name) return null
+  const sq = Number(p.serving_quantity)
+  return {
+    id: 'off_' + p.code, barcode: p.code, name, brand: (p.brands || '').split(',')[0]?.trim() || undefined,
+    kcal: Math.round(kcal), p: +(n.proteins_100g ?? 0), c: +(n.carbohydrates_100g ?? 0), f: +(n.fat_100g ?? 0), fiber: n.fiber_100g,
+    servings: sq > 0 ? [{ label: p.serving_size || `1 porsiyon`, g: sq }] : undefined,
+    source: 'off'
+  }
+}

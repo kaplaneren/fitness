@@ -1,130 +1,165 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { ask, notify } from '../components/Dialog'
 import { db } from '../db'
 import { EQUIPMENT_NAMES, FLAG_INFO, MUSCLE_GROUPS, MUSCLE_NAMES, type Equipment, type Exercise, type Kind, type Muscle } from '../data/exercises'
 import { useExercises, useProfile } from '../hooks'
 import { GroupChips, useFilteredExercises } from '../components/ExercisePicker'
 import FlagBadges from '../components/FlagBadges'
+import BodyMap from '../components/BodyMap'
+import LineChart from '../components/LineChart'
 import { e1rm, fmtDate, fmtKg } from '../lib/calc'
+import { DAY, hasStandard, levelOf, liftScore, nextLevelWeight, trend, workingWeight } from '../lib/analysis'
 
-export default function ExercisesScreen() {
+export default function ExerciseLibrary({ onClose, initialMuscle }: { onClose: () => void; initialMuscle?: Muscle | null }) {
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState('')
+  const [muscle, setMuscle] = useState<Muscle | null>(initialMuscle ?? null)
   const [open, setOpen] = useState<Exercise | null>(null)
   const [creating, setCreating] = useState(false)
-  const list = useFilteredExercises(query, group)
+  const base = useFilteredExercises(query, group)
+  const list = muscle ? base.filter((e) => e.primary.includes(muscle)) : base
   const profile = useProfile()
   return (
-    <div className="screen">
-      <div className="row-between"><h1>Hareketler</h1><button className="btn ghost" onClick={() => setCreating(true)}>+ Yeni</button></div>
-      <input className="input" placeholder={`${list.length} hareket içinde ara…`} value={query} onChange={(e) => setQuery(e.target.value)} />
-      <GroupChips value={group} onChange={setGroup} />
-      <ul className="list">
-        {list.map((e) => (
-          <li key={e.id} onClick={() => setOpen(e)}>
-            <div>
-              <div>{e.name}</div>
-              <div className="muted tiny">{e.primary.map((m) => MUSCLE_NAMES[m]).join(', ')} · {EQUIPMENT_NAMES[e.equipment]}</div>
-              <FlagBadges flags={e.flags} active={profile.restrictions} />
-            </div>
-            <span className="muted">›</span>
-          </li>
-        ))}
-      </ul>
+    <div className="sheet">
+      <div className="sheet-head">
+        <button className="btn ghost" onClick={onClose}>Kapat</button>
+        <strong>Hareketler</strong>
+        <button className="btn ghost" onClick={() => setCreating(true)}>+ Yeni</button>
+      </div>
+      <div className="sheet-body">
+        <div className="card">
+          <p className="muted small">Bir kasa dokun, o kası çalıştıran hareketleri göster.</p>
+          <BodyMap selected={muscle} onPick={(m) => setMuscle(muscle === m ? null : m)} />
+          {muscle && <div className="row-between"><strong>{MUSCLE_NAMES[muscle]}</strong><button className="link" onClick={() => setMuscle(null)}>Filtreyi kaldır</button></div>}
+        </div>
+        <input className="input" placeholder={`${list.length} hareket içinde ara`} value={query} onChange={(e) => setQuery(e.target.value)} />
+        <GroupChips value={group} onChange={(g) => { setGroup(g); setMuscle(null) }} />
+        <ul className="list">
+          {list.map((e) => (
+            <li key={e.id} onClick={() => setOpen(e)}>
+              <div className="stack grow" style={{ gap: 3 }}>
+                <span className="title">{e.name}</span>
+                <span className="muted tiny">{e.primary.map((m) => MUSCLE_NAMES[m]).join(', ')} · {EQUIPMENT_NAMES[e.equipment]}</span>
+                <FlagBadges flags={e.flags} active={profile.restrictions} />
+              </div>
+              <span className="muted">›</span>
+            </li>
+          ))}
+        </ul>
+      </div>
       {open && <ExerciseDetail ex={open} onClose={() => setOpen(null)} />}
       {creating && <CustomExercise onClose={() => setCreating(false)} />}
     </div>
   )
 }
 
-function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => void }) {
+export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => void }) {
   const { map } = useExercises()
   const profile = useProfile()
+  const [metric, setMetric] = useState<'e1rm' | 'vol' | 'max'>('e1rm')
   const history = useLiveQuery(async () => {
-    const ws = await db.workouts.orderBy('startedAt').reverse().toArray()
+    const ws = await db.workouts.orderBy('startedAt').toArray()
     return ws.flatMap((w) => w.exercises.filter((e) => e.exerciseId === ex.id).map((e) => ({ date: w.startedAt, sets: e.sets.filter((s) => s.type !== 'warmup') })))
   }, [ex.id]) ?? []
   const all = history.flatMap((h) => h.sets)
-  const best1rm = Math.max(0, ...all.map((s) => e1rm(s.weight, s.reps)))
+  const best1rm = Math.max(0, ...all.map((s) => (s.reps && s.reps <= 12 ? e1rm(s.weight, s.reps) : 0)))
   const maxW = Math.max(0, ...all.map((s) => s.weight ?? 0))
   const maxReps = Math.max(0, ...all.map((s) => s.reps ?? 0))
   const hit = ex.flags.filter((f) => profile.restrictions.includes(f))
+
+  const series = useMemo(() => history.map((h) => ({
+    t: h.date,
+    v: metric === 'e1rm' ? Math.max(0, ...h.sets.map((s) => e1rm(s.weight, s.reps)))
+      : metric === 'vol' ? h.sets.reduce((a, s) => a + (s.weight ?? 0) * (s.reps ?? 0), 0)
+      : Math.max(0, ...h.sets.map((s) => s.weight ?? 0))
+  })).filter((p) => p.v > 0), [history, metric])
+
+  const proj = useMemo(() => {
+    if (metric !== 'e1rm') return undefined
+    const recent = series.filter((p) => p.t > Date.now() - 70 * DAY)
+    const tr = trend(recent)
+    if (!tr || tr.slope <= 0) return undefined
+    const last = series[series.length - 1]
+    return { pts: [last, { t: last.t + 28 * DAY, v: tr.at(last.t + 28 * DAY) }], slope: tr.slope, in12: tr.at(last.t + 84 * DAY) }
+  }, [series, metric])
+
+  const score = hasStandard(ex.id) && best1rm ? liftScore(ex.id, best1rm, profile.bodyweight) : 0
+  const next = score ? nextLevelWeight(ex.id, score, profile.bodyweight) : null
 
   return (
     <div className="sheet">
       <div className="sheet-head">
         <button className="btn ghost" onClick={onClose}>Kapat</button>
-        <strong className="clamp1">{ex.name}</strong>
-        {ex.custom ? <button className="btn ghost danger" onClick={async () => { if (confirm('Özel hareket silinsin mi?')) { await db.customExercises.delete(ex.id); onClose() } }}>Sil</button> : <span />}
+        <strong className="ellipsis">{ex.name}</strong>
+        {ex.custom ? <button className="btn ghost danger" onClick={async () => { if (await ask('Özel hareket silinsin mi?', { danger: true, ok: 'Sil' })) { await db.customExercises.delete(ex.id); onClose() } }}>Sil</button> : <span />}
       </div>
       <div className="sheet-body">
-        <BodyMap primary={ex.primary} secondary={ex.secondary} />
-        <p><b>Ana kaslar:</b> {ex.primary.map((m) => MUSCLE_NAMES[m]).join(', ')}</p>
-        {ex.secondary.length > 0 && <p><b>Yardımcı:</b> {ex.secondary.map((m) => MUSCLE_NAMES[m]).join(', ')}</p>}
-        <p><b>Ekipman:</b> {EQUIPMENT_NAMES[ex.equipment]}</p>
-        {ex.note && <p className="card">{ex.note}</p>}
+        <div className="card">
+          <BodyMap primary={ex.primary} secondary={ex.secondary} />
+          <div className="legend"><span><i style={{ background: 'var(--accent)' }} />Ana kas</span><span><i style={{ background: 'color-mix(in srgb, var(--accent) 40%, var(--muscle))' }} />Yardımcı kas</span></div>
+          <p><b>Ana:</b> {ex.primary.map((m) => MUSCLE_NAMES[m]).join(', ')}{ex.secondary.length > 0 && <> · <b>Yardımcı:</b> {ex.secondary.map((m) => MUSCLE_NAMES[m]).join(', ')}</>}</p>
+          <p className="muted small">Ekipman: {EQUIPMENT_NAMES[ex.equipment]}</p>
+          {ex.note && <p className="small">{ex.note}</p>}
+          <a className="link" href={`https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' doğru form')}`} target="_blank" rel="noreferrer">Form videosu ara (YouTube) ↗</a>
+        </div>
+
         {hit.length > 0 && (
           <div className="card warn-card">
-            {hit.map((f) => <div key={f}>⚠ {FLAG_INFO[f].label}</div>)}
-            {ex.alt?.length ? <div className="small">Alternatifler: {ex.alt.map((a) => map.get(a)?.name ?? a).join(', ')}</div> : null}
+            {hit.map((f) => <div key={f} className="small"><b className="warn">⚠</b> {FLAG_INFO[f].label}</div>)}
+            {ex.alt?.length ? <div className="small">Daha güvenli: {ex.alt.map((a) => map.get(a)?.name ?? a).join(', ')}</div> : null}
           </div>
         )}
+
         {all.length > 0 && (
           <div className="stat-row">
-            {best1rm > 0 && <div><b>{fmtKg(best1rm)}</b><span>en iyi tahmini 1RM</span></div>}
-            {maxW > 0 && <div><b>{fmtKg(maxW)}</b><span>maks. kg</span></div>}
-            <div><b>{maxReps}</b><span>maks. tekrar</span></div>
+            {best1rm > 0 && <div className="stat"><b>{fmtKg(best1rm)}</b><span>en iyi tahmini 1RM</span></div>}
+            {maxW > 0 && <div className="stat"><b>{fmtKg(maxW)}</b><span>maks. kg</span></div>}
+            <div className="stat"><b>{maxReps}</b><span>maks. tekrar</span></div>
           </div>
         )}
+
+        {score > 0 && (
+          <div className="card">
+            <div className="card-title"><h3>Güç seviyesi</h3><span className="pill">{levelOf(score)}</span></div>
+            <div className="level-scale">{[0, 1, 2, 3, 4].map((i) => <div key={i} className={score >= (i + 1) * 20 ? 'on' : ''} />)}</div>
+            <p className="small">1RM / vücut ağırlığı: <b>{(best1rm / profile.bodyweight).toFixed(2)}</b>{next && <> · {next.level} seviyesi için yaklaşık <b>{fmtKg(next.kg)} kg</b> 1RM</>}</p>
+            <p className="muted tiny">Seviyeler bu uygulamanın yaklaşık tablosudur.</p>
+          </div>
+        )}
+
+        {series.length > 0 && (
+          <div className="card">
+            <div className="seg">
+              <button className={metric === 'e1rm' ? 'on' : ''} onClick={() => setMetric('e1rm')}>Tahmini 1RM</button>
+              <button className={metric === 'max' ? 'on' : ''} onClick={() => setMetric('max')}>Maks. kg</button>
+              <button className={metric === 'vol' ? 'on' : ''} onClick={() => setMetric('vol')}>Hacim</button>
+            </div>
+            <LineChart points={series} projection={proj?.pts} unit=" kg" />
+            {proj && <p className="small">Son 10 haftalık eğilim: haftada <b>+{fmtKg(proj.slope)} kg</b>. Bu hızla 12 hafta sonra tahmini 1RM ≈ <b>{fmtKg(proj.in12)} kg</b>.</p>}
+          </div>
+        )}
+
+        {best1rm > 0 && (
+          <div className="card">
+            <h3>Çalışma ağırlıkları (2 RIR)</h3>
+            <div className="stat-row">
+              {[5, 8, 10, 12].map((r) => <div key={r} className="stat"><b>{fmtKg(workingWeight(best1rm, r, 2))}</b><span>{r} tekrar</span></div>)}
+            </div>
+          </div>
+        )}
+
         <h3>Geçmiş</h3>
         {history.length === 0 && <p className="muted">Henüz kayıt yok.</p>}
-        {history.slice(0, 30).map((h, i) => (
-          <div key={i} className="hist-row">
-            <span className="muted small">{fmtDate(h.date)}</span>
-            <span>{h.sets.map((s) => (s.seconds != null ? `${Math.round(s.seconds / 60)} dk` : `${s.weight ? fmtKg(s.weight) + '×' : ''}${s.reps ?? ''}`)).join('  ')}</span>
-          </div>
-        ))}
+        <div>
+          {[...history].reverse().slice(0, 30).map((h, i) => (
+            <div key={i} className="hist-row">
+              <span className="muted small">{fmtDate(h.date)}</span>
+              <span className="mono">{h.sets.map((s) => (s.seconds != null ? `${Math.round(s.seconds / 60)} dk` : `${s.weight ? fmtKg(s.weight) + '×' : ''}${s.reps ?? ''}`)).join('  ')}</span>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
-  )
-}
-
-// Basit ön/arka vücut şeması. Bölgeler kas gruplarına göre renklenir.
-const REGIONS: { m: Muscle; side: 'f' | 'b'; d: string }[] = [
-  { m: 'trapez', side: 'b', d: 'M38 22 L50 18 L62 22 L58 30 L42 30Z' },
-  { m: 'on_omuz', side: 'f', d: 'M30 26 a6 6 0 0 1 8 -2 l2 8 h-10Z M70 26 a6 6 0 0 0 -8 -2 l-2 8 h10Z' },
-  { m: 'yan_omuz', side: 'b', d: 'M28 28 a6 6 0 0 1 8 -4 l2 6 h-10Z M72 28 a6 6 0 0 0 -8 -4 l-2 6 h10Z' },
-  { m: 'arka_omuz', side: 'b', d: 'M30 30 h8 v5 h-8Z M62 30 h8 v5 h-8Z' },
-  { m: 'gogus', side: 'f', d: 'M38 26 h24 v10 a12 4 0 0 1 -24 0Z' },
-  { m: 'biceps', side: 'f', d: 'M28 34 h8 v12 h-8Z M64 34 h8 v12 h-8Z' },
-  { m: 'triceps', side: 'b', d: 'M28 36 h8 v12 h-8Z M64 36 h8 v12 h-8Z' },
-  { m: 'onkol', side: 'f', d: 'M26 48 h8 v14 h-8Z M66 48 h8 v14 h-8Z' },
-  { m: 'karin', side: 'f', d: 'M43 40 h14 v20 h-14Z' },
-  { m: 'oblik', side: 'f', d: 'M38 40 h5 v18 h-5Z M57 40 h5 v18 h-5Z' },
-  { m: 'kanat', side: 'b', d: 'M38 32 h10 v16 l-8 -4Z M52 32 h10 l-2 12 l-8 4Z' },
-  { m: 'sirt_ust', side: 'b', d: 'M42 30 h16 v6 h-16Z' },
-  { m: 'bel', side: 'b', d: 'M44 48 h12 v10 h-12Z' },
-  { m: 'kalca', side: 'b', d: 'M38 60 h24 v12 h-24Z' },
-  { m: 'on_bacak', side: 'f', d: 'M38 64 h10 v24 h-10Z M52 64 h10 v24 h-10Z' },
-  { m: 'ic_bacak', side: 'f', d: 'M47 64 h6 v14 h-6Z' },
-  { m: 'arka_bacak', side: 'b', d: 'M38 73 h10 v18 h-10Z M52 73 h10 v18 h-10Z' },
-  { m: 'baldir', side: 'b', d: 'M39 94 h8 v14 h-8Z M53 94 h8 v14 h-8Z' }
-]
-const SILHOUETTE = 'M50 4 a7 7 0 1 1 0 14 a7 7 0 1 1 0 -14Z M36 20 h28 l10 6 l4 38 h-6 l-4 -28 v28 l2 0 l2 56 h-10 l-6 -40 l-6 40 h-10 l2 -56 v-28 l-4 28 h-6 l4 -38Z'
-
-export function BodyMap({ primary, secondary }: { primary: Muscle[]; secondary: Muscle[] }) {
-  const fill = (m: Muscle) => (primary.includes(m) ? 'var(--accent)' : secondary.includes(m) ? 'var(--accent-soft)' : 'transparent')
-  return (
-    <div className="bodymap">
-      {(['f', 'b'] as const).map((side) => (
-        <figure key={side}>
-          <svg viewBox="0 0 100 120">
-            <path d={SILHOUETTE} fill="var(--surface-2)" />
-            {REGIONS.filter((r) => r.side === side).map((r) => <path key={r.m} d={r.d} fill={fill(r.m)} />)}
-          </svg>
-          <figcaption>{side === 'f' ? 'Ön' : 'Arka'}</figcaption>
-        </figure>
-      ))}
     </div>
   )
 }
@@ -135,7 +170,7 @@ function CustomExercise({ onClose }: { onClose: () => void }) {
   const [kind, setKind] = useState<Kind>('weight')
   const [primary, setPrimary] = useState<Muscle[]>([])
   const save = async () => {
-    if (!name.trim() || !primary.length) { alert('Ad ve en az bir ana kas seç.'); return }
+    if (!name.trim() || !primary.length) { notify('Hareketin adını yaz ve en az bir ana kas seç.'); return }
     await db.customExercises.add({ id: 'c_' + Date.now(), name: name.trim(), equipment, kind, primary, secondary: [], flags: [], custom: true })
     onClose()
   }
@@ -147,23 +182,26 @@ function CustomExercise({ onClose }: { onClose: () => void }) {
         <button className="btn ghost" onClick={save}>Kaydet</button>
       </div>
       <div className="sheet-body">
-        <input className="input" placeholder="Hareket adı" value={name} onChange={(e) => setName(e.target.value)} />
-        <label className="field">Ekipman
-          <select className="input" value={equipment} onChange={(e) => setEquipment(e.target.value as Equipment)}>
-            {Object.entries(EQUIPMENT_NAMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </label>
-        <label className="field">Kayıt tipi
-          <select className="input" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
-            <option value="weight">Ağırlık × tekrar</option>
-            <option value="reps">Sadece tekrar</option>
-            <option value="assisted">Destekli (−kg)</option>
-            <option value="time">Süre</option>
-          </select>
-        </label>
-        <p>Ana kaslar</p>
+        <input id="cx-name" className="input" placeholder="Hareket adı" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="fields">
+          <label className="field">Ekipman
+            <select value={equipment} onChange={(e) => setEquipment(e.target.value as Equipment)}>
+              {Object.entries(EQUIPMENT_NAMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </label>
+          <label className="field">Kayıt tipi
+            <select value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+              <option value="weight">Ağırlık × tekrar</option>
+              <option value="reps">Sadece tekrar</option>
+              <option value="assisted">Destekli (−kg)</option>
+              <option value="time">Süre</option>
+            </select>
+          </label>
+        </div>
+        <p className="section-label">Ana kaslar</p>
+        <BodyMap selected={null} primary={primary} onPick={(m) => setPrimary((p) => (p.includes(m) ? p.filter((x) => x !== m) : [...p, m]))} />
         {MUSCLE_GROUPS.map((g) => (
-          <div key={g.name} className="chips">
+          <div key={g.name} className="chips wrap">
             {g.muscles.map((m) => (
               <button key={m} className={`chip ${primary.includes(m) ? 'on' : ''}`} onClick={() => setPrimary((p) => (p.includes(m) ? p.filter((x) => x !== m) : [...p, m]))}>{MUSCLE_NAMES[m]}</button>
             ))}

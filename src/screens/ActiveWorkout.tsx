@@ -1,18 +1,21 @@
+import { ask, notify } from '../components/Dialog'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { db, setKV, type SetEntry, type SetType, type Workout, type WorkoutExercise } from '../db'
 import { beep, unlockAudio, useExercises, useNow, useProfile, useWakeLock } from '../hooks'
 import { e1rm, fmtDuration, fmtKg, platesFor, warmupSets } from '../lib/calc'
 import { discardWorkout, finishWorkout, lastSetsFor, makeExercise } from '../lib/workout'
+import { dynamicRest, workingWeight } from '../lib/analysis'
 import ExercisePicker from '../components/ExercisePicker'
 import FlagBadges from '../components/FlagBadges'
+import { PLATE_COLORS } from '../lib/plates'
 
 interface Rest { endAt: number; total: number }
 
 const TYPE_ORDER: SetType[] = ['normal', 'warmup', 'drop', 'failure']
 const TYPE_LABEL: Record<SetType, string> = { normal: '', warmup: 'I', drop: 'D', failure: 'F' }
 
-export default function ActiveWorkout({ workout, onMinimize }: { workout: Workout; onMinimize: () => void }) {
+export default function ActiveWorkout({ workout, onMinimize, onFinished }: { workout: Workout; onMinimize: () => void; onFinished: (id?: number) => void }) {
   const [w, setW] = useState<Workout>(workout)
   const { map } = useExercises()
   const profile = useProfile()
@@ -21,6 +24,7 @@ export default function ActiveWorkout({ workout, onMinimize }: { workout: Workou
   const [picker, setPicker] = useState<null | { mode: 'add' } | { mode: 'swap'; index: number }>(null)
   const [menu, setMenu] = useState<number | null>(null)
   const [plateFor, setPlateFor] = useState<number | null>(null)
+  const [workFor, setWorkFor] = useState<number | null>(null)
   const [prev, setPrev] = useState<Record<string, SetEntry[] | null>>({})
   const [best, setBest] = useState<Record<string, number>>({})
   const fired = useRef<number | null>(null)
@@ -80,7 +84,7 @@ export default function ActiveWorkout({ workout, onMinimize }: { workout: Workou
       // Süpersette grubun son hareketinden sonra dinlen
       const next = w.exercises[i + 1]
       const inSuperset = ex.superset && next?.superset === ex.superset
-      if (!inSuperset) startRest(ex.restSec)
+      if (!inSuperset) startRest(dynamicRest(ex.restSec, map.get(ex.exerciseId), { ...s, ...fill }, profile))
     }
   }
 
@@ -97,18 +101,19 @@ export default function ActiveWorkout({ workout, onMinimize }: { workout: Workou
 
   const finish = async () => {
     const done = w.exercises.reduce((t, e) => t + e.sets.filter((s) => s.done).length, 0)
-    if (!done) { if (confirm('Hiç set tamamlanmadı. Antrenmanı iptal edeyim mi?')) await discardWorkout(); return }
+    if (!done) { if (await ask('Hiç set tamamlanmadı. Antrenmanı iptal edeyim mi?')) await discardWorkout(); return }
     const undone = w.exercises.reduce((t, e) => t + e.sets.filter((s) => !s.done).length, 0)
-    if (!confirm(undone ? `${undone} set işaretlenmemiş; bunlar kaydedilmeyecek. Bitirilsin mi?` : 'Antrenman bitirilsin mi?')) return
-    await finishWorkout(w)
+    if (!await ask(undone ? `${undone} set işaretlenmemiş; bunlar kaydedilmeyecek. Bitirilsin mi?` : 'Antrenman bitirilsin mi?')) return
+    const id = await finishWorkout(w)
+    onFinished(id)
   }
-  const cancel = async () => { if (confirm('Antrenman silinsin mi? Bu geri alınamaz.')) await discardWorkout() }
+  const cancel = async () => { if (await ask('Antrenman silinsin mi? Bu geri alınamaz.')) await discardWorkout() }
 
   return (
     <div className="sheet workout">
-      <div className="sheet-head">
-        <button className="btn ghost" onClick={onMinimize} aria-label="Küçült">⌄</button>
-        <span className="mono">{fmtDuration(now - w.startedAt)}</span>
+      <div className="sheet-head workout-head">
+        <button className="btn ghost" onClick={onMinimize} aria-label="Küçült">Küçült</button>
+        <span className="timer">{fmtDuration(now - w.startedAt)}</span>
         <button className="btn primary sm" onClick={finish}>Bitir</button>
       </div>
 
@@ -116,7 +121,7 @@ export default function ActiveWorkout({ workout, onMinimize }: { workout: Workou
         <div className="rest">
           <div className="rest-bar" style={{ width: `${Math.min(100, (restLeft / rest.total) * 100)}%` }} />
           <button onClick={() => adjustRest(-15)}>−15</button>
-          <span className="mono big">{fmtDuration(restLeft * 1000)}</span>
+          <span className="num-d">{fmtDuration(restLeft * 1000)}</span>
           <button onClick={() => adjustRest(15)}>+15</button>
           <button onClick={() => setKV('rest', null)}>Geç</button>
         </div>
@@ -157,10 +162,13 @@ export default function ActiveWorkout({ workout, onMinimize }: { workout: Workou
                   {kind === 'weight' && (
                     <button onClick={() => {
                       const top = ex.sets.find((s) => s.type !== 'warmup')?.weight ?? pWork[0]?.weight
-                      if (!top) { alert('Önce çalışma ağırlığını gir.'); return }
+                      if (!top) { notify('Önce çalışma ağırlığını gir.'); return }
                       const wu = warmupSets(top, profile.barWeight).map<SetEntry>((s) => ({ ...s, type: 'warmup', done: false }))
                       updEx(i, (e) => ({ ...e, sets: [...wu, ...e.sets] })); setMenu(null)
                     }}>Isınma setleri ekle</button>
+                  )}
+                  {kind === 'weight' && best[ex.exerciseId] > 0 && (
+                    <button onClick={() => { setWorkFor(i); setMenu(null) }}>Çalışma ağırlığı hesapla</button>
                   )}
                   {kind === 'weight' && info?.equipment === 'barbell' && (
                     <button onClick={() => { setPlateFor(ex.sets.find((s) => !s.done)?.weight ?? ex.sets[0]?.weight ?? profile.barWeight); setMenu(null) }}>Plaka hesapla</button>
@@ -178,6 +186,7 @@ export default function ActiveWorkout({ workout, onMinimize }: { workout: Workou
                     <th>Set</th><th>Önceki</th>
                     {kind === 'time' ? <th>Süre (dk)</th> : <th>{kind === 'assisted' ? '−kg' : kind === 'reps' ? '+kg' : 'kg'}</th>}
                     {kind !== 'time' && <th>Tekrar</th>}
+                    {kind !== 'time' && <th title="Tükenişe kalan tekrar">RIR</th>}
                     <th>✓</th>
                   </tr>
                 </thead>
@@ -199,6 +208,13 @@ export default function ActiveWorkout({ workout, onMinimize }: { workout: Workou
                             <td><NumInput value={s.weight} placeholder={ps?.weight != null ? fmtKg(ps.weight) : ''} onChange={(v) => updSet(i, si, { weight: v })} /></td>
                             <td><NumInput value={s.reps} integer placeholder={ps?.reps != null ? String(ps.reps) : ''} onChange={(v) => updSet(i, si, { reps: v })} /></td>
                           </>
+                        )}
+                        {kind !== 'time' && (
+                          <td>
+                            <button className={`rir ${s.rir != null ? 'set' : ''}`} aria-label="RIR" onClick={() => updSet(i, si, { rir: s.rir == null ? 2 : s.rir >= 4 ? undefined : s.rir === 0 ? 1 : s.rir === 1 ? 0 : s.rir + 1 })}>
+                              {s.rir == null ? '–' : s.rir >= 4 ? '4+' : s.rir}
+                            </button>
+                          </td>
                         )}
                         <td>
                           <button className={`done-btn ${s.done ? 'on' : ''}`} onClick={() => toggleDone(i, si)} aria-label="Tamamlandı">{isPr ? '★' : '✓'}</button>
@@ -241,6 +257,14 @@ export default function ActiveWorkout({ workout, onMinimize }: { workout: Workou
         />
       )}
       {plateFor != null && <PlateModal initial={plateFor} onClose={() => setPlateFor(null)} />}
+      {workFor != null && (
+        <WorkModal
+          name={map.get(w.exercises[workFor].exerciseId)?.name ?? ''}
+          oneRm={best[w.exercises[workFor].exerciseId]}
+          onClose={() => setWorkFor(null)}
+          onApply={(kg) => { updEx(workFor, (e) => ({ ...e, sets: e.sets.map((s) => (s.done || s.type === 'warmup' ? s : { ...s, weight: kg })) })); setWorkFor(null) }}
+        />
+      )}
     </div>
   )
 }
@@ -275,17 +299,51 @@ function PlateModal({ initial, onClose }: { initial: number; onClose: () => void
   const { out, rest } = platesFor(total, profile.barWeight, profile.plates)
   return (
     <div className="modal" onClick={onClose}>
-      <div className="card" onClick={(e) => e.stopPropagation()}>
-        <h3>Plaka hesaplayıcı</h3>
+      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+        <h2>Plaka hesaplayıcı</h2>
         <label className="inline">Toplam
           <input type="number" inputMode="decimal" value={total} onChange={(e) => setTotal(+e.target.value || 0)} /> kg
         </label>
         <p className="muted small">Bar: {profile.barWeight} kg · Her tarafa:</p>
         <div className="plates">
-          {out.length ? out.map((p, i) => <span key={i} className="plate" style={{ height: 30 + p * 2.4 }}>{fmtKg(p)}</span>) : <span className="muted">Sadece bar</span>}
+          <span className="bar" />
+          {out.length ? out.map((p, i) => <span key={i} className="plate" style={{ height: 34 + p * 2.6, background: PLATE_COLORS(p) }}>{fmtKg(p)}</span>) : <span className="muted">Sadece bar</span>}
         </div>
         {rest > 0 && <p className="warn small">{fmtKg(rest)} kg eksik kalıyor (plaka yok).</p>}
         <button className="btn block" onClick={onClose}>Kapat</button>
+      </div>
+    </div>
+  )
+}
+
+function WorkModal({ name, oneRm, onClose, onApply }: { name: string; oneRm: number; onClose: () => void; onApply: (kg: number) => void }) {
+  const [rir, setRir] = useState(2)
+  const [sel, setSel] = useState<number | null>(null)
+  const rows = [3, 5, 6, 8, 10, 12, 15]
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+        <h2>Çalışma ağırlığı</h2>
+        <p className="muted small">{name} · en iyi tahmini 1RM {fmtKg(oneRm)} kg</p>
+        <div className="seg">
+          {[0, 1, 2, 3].map((r) => <button key={r} className={rir === r ? 'on' : ''} onClick={() => setRir(r)}>{r} RIR</button>)}
+        </div>
+        <table className="sets read">
+          <tbody>
+            {rows.map((reps) => {
+              const kg = workingWeight(oneRm, reps, rir)
+              return (
+                <tr key={reps} onClick={() => setSel(kg)} style={{ cursor: 'pointer', background: sel === kg ? 'var(--accent-soft)' : undefined }}>
+                  <td>{reps} tekrar</td><td><b>{fmtKg(kg)} kg</b></td><td className="muted tiny">%{Math.round((kg / oneRm) * 100)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        <div className="dialog-actions">
+          <button className="btn" onClick={onClose}>Kapat</button>
+          <button className="btn primary" disabled={sel == null} onClick={() => sel != null && onApply(sel)}>Setlere uygula</button>
+        </div>
       </div>
     </div>
   )

@@ -1,3 +1,4 @@
+import { ask, notify } from '../components/Dialog'
 import { useState } from 'react'
 import { db, type Routine, type RoutineExercise } from '../db'
 import { useExercises, useProfile } from '../hooks'
@@ -33,13 +34,13 @@ export default function RoutineEditor({ routine, onClose }: { routine: Routine; 
   })
 
   const save = async () => {
-    if (!r.name.trim()) { alert('Rutine bir ad ver.'); return }
+    if (!r.name.trim()) { notify('Rutine bir ad ver.'); return }
     const data = { ...r, name: r.name.trim(), folder: r.folder?.trim() || undefined, updatedAt: Date.now() }
     if (r.id) await db.routines.put(data); else { delete data.id; await db.routines.add(data) }
     onClose()
   }
   const remove = async () => {
-    if (r.id && confirm(`"${r.name}" silinsin mi?`)) { await db.routines.delete(r.id); onClose() }
+    if (r.id && await ask(`"${r.name}" silinsin mi?`)) { await db.routines.delete(r.id); onClose() }
   }
 
   return (

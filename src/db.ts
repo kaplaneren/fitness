@@ -10,6 +10,8 @@ export interface SetEntry {
   type: SetType
   done: boolean
   rpe?: number
+  /** Tükenişe kalan tekrar (Reps In Reserve) */
+  rir?: number
 }
 
 export interface WorkoutExercise {
@@ -55,23 +57,88 @@ export interface Measurement {
   weight?: number
   waist?: number
   bodyFat?: number
+  chest?: number
+  arm?: number
+  thigh?: number
+  hip?: number
 }
 
 export interface Profile {
   bodyweight: number
+  height: number
+  age: number
+  sex: 'm' | 'f'
   restrictions: Flag[]
   defaultRest: number
+  dynamicRest: boolean
   barWeight: number
   plates: number[]
   lastBackup?: number
+  theme: 'system' | 'light' | 'dark'
+  activity: number
+  goal: 'cut' | 'maintain' | 'bulk'
+  /** Elle girilen hedefler; boşsa hesaplanır */
+  kcalTarget?: number
+  proteinTarget?: number
+  fatTarget?: number
+  waterTarget: number
 }
 
 export const DEFAULT_PROFILE: Profile = {
   bodyweight: 80.4,
+  height: 180,
+  age: 30,
+  sex: 'm',
   restrictions: ['axial', 'lumbar', 'knee', 'wrist'],
   defaultRest: 120,
+  dynamicRest: true,
   barWeight: 20,
-  plates: [25, 20, 15, 10, 5, 2.5, 1.25]
+  plates: [25, 20, 15, 10, 5, 2.5, 1.25],
+  theme: 'system',
+  activity: 1.45,
+  goal: 'cut',
+  waterTarget: 10
+}
+
+export interface Food {
+  id: string
+  name: string
+  brand?: string
+  /** 100 g (veya 100 ml) başına */
+  kcal: number
+  p: number
+  c: number
+  f: number
+  fiber?: number
+  servings?: { label: string; g: number }[]
+  cat?: string
+  barcode?: string
+  source?: 'base' | 'off' | 'user' | 'recipe'
+  ingredients?: { foodId: string; g: number }[]
+}
+
+export type Meal = 'kahvalti' | 'ogle' | 'aksam' | 'ara'
+
+export interface DiaryEntry {
+  id?: number
+  date: string
+  meal: Meal
+  foodId: string
+  name: string
+  grams: number
+  kcal: number
+  p: number
+  c: number
+  f: number
+  label?: string
+  createdAt: number
+}
+
+export interface Photo {
+  id?: number
+  date: number
+  blob: Blob
+  note?: string
 }
 
 interface KV { key: string; value: unknown }
@@ -82,6 +149,9 @@ class AppDB extends Dexie {
   workouts!: Table<Workout, number>
   measurements!: Table<Measurement, number>
   kv!: Table<KV, string>
+  foods!: Table<Food, string>
+  diary!: Table<DiaryEntry, number>
+  photos!: Table<Photo, number>
 
   constructor() {
     super('form-app')
@@ -91,6 +161,11 @@ class AppDB extends Dexie {
       workouts: '++id, startedAt',
       measurements: '++id, date',
       kv: 'key'
+    })
+    this.version(2).stores({
+      foods: 'id, name, barcode, source',
+      diary: '++id, date, foodId, createdAt',
+      photos: '++id, date'
     })
   }
 }
@@ -112,7 +187,7 @@ export function allExercises(custom: Exercise[] = []): Exercise[] {
   return [...BUILTIN_EXERCISES, ...custom].sort((a, b) => a.name.localeCompare(b.name, 'tr'))
 }
 
-const BACKUP_TABLES = ['customExercises', 'routines', 'workouts', 'measurements', 'kv'] as const
+const BACKUP_TABLES = ['customExercises', 'routines', 'workouts', 'measurements', 'kv', 'foods', 'diary'] as const
 
 export async function exportBackup() {
   const data: Record<string, unknown[]> = {}
@@ -126,7 +201,7 @@ export async function importBackup(json: unknown) {
   await db.transaction('rw', BACKUP_TABLES.map((t) => db.table(t)), async () => {
     for (const t of BACKUP_TABLES) {
       await db.table(t).clear()
-      if (b.data![t]) await db.table(t).bulkAdd(b.data![t])
+      if (b.data![t]) await db.table(t).bulkPut(b.data![t])
     }
   })
 }
