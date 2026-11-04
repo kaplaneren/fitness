@@ -3,6 +3,7 @@ import { useActiveWorkout, useNow, useProfile } from './hooks'
 import { fmtDuration } from './lib/calc'
 import { DialogHost, notify } from './components/Dialog'
 import { importFromUrl } from './lib/healthImport'
+import { migrateRestRows } from './lib/csv'
 import Dashboard from './screens/Dashboard'
 import StartScreen from './screens/Start'
 import NutritionScreen from './screens/Nutrition'
@@ -40,6 +41,7 @@ export default function App() {
 
   useEffect(() => { window.scrollTo(0, 0) }, [tab])
   useEffect(() => { navigator.storage?.persist?.().catch(() => {}) }, [])
+  useEffect(() => { migrateRestRows().then((n) => { if (n) notify(`Strong'dan aktarılan antrenmanlarda set gibi görünen ${n} dinlenme satırı düzeltildi; bunlar artık dinlenme süresi olarak kayıtlı.`) }).catch(() => {}) }, [])
   useEffect(() => { importFromUrl().then((m) => { if (m) notify(m) }).catch(() => {}) }, [])
 
   return (

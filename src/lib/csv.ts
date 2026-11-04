@@ -150,6 +150,12 @@ export async function importStrong(text: string, custom: Exercise[]) {
     let ex = w.exercises[w.exercises.length - 1]
     if (!ex || ex.exerciseId !== exId) { ex = { exerciseId: exId, sets: [], restSec: 120 }; w.exercises.push(ex) }
     const order = (r[iOrder] ?? '').trim().toUpperCase()
+    // Strong dinlenme sayacını "Rest Timer" satırı olarak yazar: set değil, dinlenme süresi
+    if (/REST|DİNLEN|DINLEN/.test(order)) {
+      const sec = iSec >= 0 ? parseFloat(r[iSec]) : NaN
+      if (sec > 0) ex.restSec = Math.round(sec)
+      continue
+    }
     const rpe = iRpe >= 0 ? parseFloat(r[iRpe]) : NaN
     const set: SetEntry = {
       type: order === 'W' ? 'warmup' : order === 'D' ? 'drop' : order === 'F' ? 'failure' : 'normal', done: true,
@@ -158,6 +164,8 @@ export async function importStrong(text: string, custom: Exercise[]) {
     }
     ex.sets.push(set)
   }
+  const allEx = new Map([...BUILTIN_EXERCISES, ...custom, ...newCustom.values()].map((e) => [e.id, e]))
+  for (const w of workouts.values()) cleanRestRows(w, allEx)
   const list = [...workouts.values()].filter((w) => w.exercises.length)
   const existing = new Set((await db.workouts.toArray()).map((w) => w.startedAt))
   const fresh = list.filter((w) => !existing.has(w.startedAt))
@@ -166,4 +174,40 @@ export async function importStrong(text: string, custom: Exercise[]) {
     await db.workouts.bulkAdd(fresh)
   })
   return { workouts: fresh.length, skipped: list.length - fresh.length, newExercises: newCustom.size }
+}
+
+
+/**
+ * Süreli olmayan bir harekette ağırlık/tekrar içeren setlerin yanında yalnızca süre içeren satırlar varsa
+ * bunlar dinlenme süresidir (Strong'un "2 dk" satırları): setlerden çıkarılır, dinlenme süresi olarak yazılır.
+ * Değişiklik yaptıysa çıkarılan satır sayısını döndürür.
+ */
+export function cleanRestRows(w: Workout, exMap: Map<string, Exercise>) {
+  let removed = 0
+  for (const e of w.exercises) {
+    if (exMap.get(e.exerciseId)?.kind === 'time') continue
+    const isRest = (s: SetEntry) => s.seconds != null && s.seconds > 0 && !s.weight && !s.reps
+    const rest = e.sets.filter(isRest)
+    if (!rest.length || rest.length === e.sets.length) continue
+    const secs = rest.map((s) => s.seconds!).sort((a, b) => a - b)
+    e.restSec = Math.round(secs[Math.floor(secs.length / 2)])
+    e.sets = e.sets.filter((s) => !isRest(s))
+    removed += rest.length
+  }
+  return removed
+}
+
+/** Daha önce içe aktarılmış antrenmanlardaki dinlenme satırlarını bir kez temizler. */
+export async function migrateRestRows() {
+  if ((await db.kv.get('migr:restRows'))?.value) return 0
+  const exMap = new Map([...BUILTIN_EXERCISES, ...(await db.customExercises.toArray())].map((e) => [e.id, e]))
+  let total = 0
+  await db.transaction('rw', db.workouts, async () => {
+    for (const w of await db.workouts.toArray()) {
+      const n = cleanRestRows(w, exMap)
+      if (n) { total += n; await db.workouts.put(w) }
+    }
+  })
+  await db.kv.put({ key: 'migr:restRows', value: Date.now() })
+  return total
 }

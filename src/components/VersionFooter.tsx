@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.7.2', date: '4 Kasım 2026', items: [
+    'Strong içe aktarmada dinlenme satırları ("2 dk" gibi) artık set sayılmıyor, dinlenme süresi olarak kaydediliyor',
+    'Daha önce aktarılmış antrenmanlardaki bu satırlar otomatik düzeltildi'
+  ] },
   { v: '0.7.1', date: '4 Kasım 2026', items: [
     'Eklenen yemekler düzenlenebiliyor: miktar, porsiyon, öğün ve gün değiştirme, kopyasını ekleme, silme'
   ] },
