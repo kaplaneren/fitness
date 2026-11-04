@@ -4,7 +4,7 @@ import { db, getKV, setKV, type DiaryEntry, type Meal, type MealTemplate } from 
 import { useDayEnergy } from '../hooks'
 import { MEALS, shiftDay, sumEntries, todayKey } from '../lib/nutrition'
 import { fmtKg } from '../lib/calc'
-import FoodSearch from './FoodSearch'
+import FoodSearch, { EditEntrySheet } from './FoodSearch'
 import VersionFooter from '../components/VersionFooter'
 import { Bars } from '../components/LineChart'
 import { ask, notify } from '../components/Dialog'
@@ -155,18 +155,7 @@ export default function NutritionScreen() {
 
       <VersionFooter />
       {adding && <FoodSearch day={day} meal={adding} onClose={() => setAdding(null)} />}
-      {editEntry && (
-        <div className="modal" onClick={() => setEditEntry(null)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <h2>{editEntry.name}</h2>
-            <p className="small">{editEntry.label ?? `${editEntry.grams} g`} · {editEntry.kcal} kcal · P {editEntry.p} g · K {editEntry.c} g · Y {editEntry.f} g</p>
-            <div className="dialog-actions">
-              <button className="btn danger" onClick={async () => { if (await ask('Bu kayıt silinsin mi?', { danger: true, ok: 'Sil' })) { await db.diary.delete(editEntry.id!); setEditEntry(null) } }}>Sil</button>
-              <button className="btn" onClick={() => setEditEntry(null)}>Kapat</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {editEntry && <EditEntrySheet entry={editEntry} onClose={() => setEditEntry(null)} />}
     </div>
   )
 }

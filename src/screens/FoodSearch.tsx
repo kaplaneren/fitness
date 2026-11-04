@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { db, getKV, setKV, type Food, type Meal, type MealTemplate } from '../db'
+import { db, getKV, setKV, type DiaryEntry, type Food, type Meal, type MealTemplate } from '../db'
 import { BASE_FOODS, FOOD_CATEGORIES } from '../data/foods'
 import { MEALS, fetchOffProduct, normalizeTr, portion, searchOff } from '../lib/nutrition'
 import { ask, notify } from '../components/Dialog'
@@ -101,32 +101,69 @@ function FoodList({ foods, onPick }: { foods: Food[]; onPick: (f: Food) => void 
   )
 }
 
-function AmountSheet({ food, day, meal, onClose, onAdded }: { food: Food; day: string; meal: Meal; onClose: () => void; onAdded: () => void }) {
+/** Kayıtlı bir öğün girişinden 100 g değerlerini geri hesaplar (yiyecek listede yoksa). */
+function foodFromEntry(e: DiaryEntry): Food {
+  const k = 100 / Math.max(1, e.grams)
+  return { id: e.foodId, name: e.name, kcal: Math.round(e.kcal * k), p: +(e.p * k).toFixed(1), c: +(e.c * k).toFixed(1), f: +(e.f * k).toFixed(1) }
+}
+
+/** Eklenmiş bir yemeği düzenleme: miktar, porsiyon, öğün, gün; kopyalama ve silme. */
+export function EditEntrySheet({ entry, onClose }: { entry: DiaryEntry; onClose: () => void }) {
+  const { map } = useAllFoods()
+  const food = map.get(entry.foodId) ?? foodFromEntry(entry)
+  return <AmountSheet food={food} day={entry.date} meal={entry.meal} entry={entry} onClose={onClose} onAdded={onClose} />
+}
+
+function AmountSheet({ food, day, meal, onClose, onAdded, entry }: { food: Food; day: string; meal: Meal; onClose: () => void; onAdded: () => void; entry?: DiaryEntry }) {
   const servings = food.servings ?? []
-  const [serving, setServing] = useState<number>(servings.length ? 0 : -1)
-  const [count, setCount] = useState(1)
-  const [grams, setGrams] = useState(servings[0]?.g ?? 100)
-  const [m, setM] = useState<Meal>(meal)
+  // Düzenlemede mevcut porsiyonu etiketinden bul ("2 × 1 kase" gibi)
+  const initServing = (() => {
+    if (!entry) return servings.length ? 0 : -1
+    if (!entry.label) return -1
+    return servings.findIndex((x) => entry.label!.endsWith(x.label))
+  })()
+  const initCount = entry && initServing >= 0 ? Math.round((entry.grams / servings[initServing].g) * 2) / 2 || 1 : 1
+  const [serving, setServing] = useState<number>(initServing)
+  const [count, setCount] = useState(initCount)
+  const [grams, setGrams] = useState(entry ? entry.grams : servings[0]?.g ?? 100)
+  const [m, setM] = useState<Meal>(entry?.meal ?? meal)
+  const [date, setDate] = useState(entry?.date ?? day)
   const g = serving >= 0 ? servings[serving].g * count : grams
   const v = portion(food, g)
+  const label = serving >= 0 ? `${count !== 1 ? count + ' × ' : ''}${servings[serving].label}` : undefined
+  const save = async () => {
+    if (!entry) return add()
+    await db.diary.update(entry.id!, { date, meal: m, grams: Math.round(g), label, ...v })
+    onAdded()
+  }
+  const duplicate = async () => {
+    if (!entry) return
+    const { id: _id, ...rest } = entry
+    await db.diary.add({ ...rest, date, meal: m, grams: Math.round(g), label, ...v, createdAt: Date.now() })
+    notify('Kopyası eklendi.')
+    onAdded()
+  }
+  const remove = async () => {
+    if (entry && await ask('Bu kayıt silinsin mi?', { danger: true, ok: 'Sil' })) { await db.diary.delete(entry.id!); onAdded() }
+  }
   const add = async () => {
     if (food.source === 'off' && !(await db.foods.get(food.id))) await db.foods.put(food)
     await db.diary.add({
       date: day, meal: m, foodId: food.id, name: food.brand ? `${food.name} (${food.brand})` : food.name, grams: Math.round(g),
-      label: serving >= 0 ? `${count !== 1 ? count + ' × ' : ''}${servings[serving].label}` : undefined,
-      ...v, createdAt: Date.now()
+      label, ...v, createdAt: Date.now()
     })
     onAdded()
   }
   return (
     <div className="modal" onClick={onClose}>
       <div className="dialog" onClick={(e) => e.stopPropagation()}>
-        <h2>{food.name}</h2>
-        {food.brand && <p className="muted small">{food.brand}</p>}
+        <h2>{entry ? entry.name : food.name}</h2>
+        {food.brand && !entry && <p className="muted small">{food.brand}</p>}
+        {entry && <p className="muted small">Şu an: {entry.label ?? `${entry.grams} g`} · {entry.kcal} kcal. Miktarı, öğünü veya günü değiştirebilirsin.</p>}
         {servings.length > 0 && (
           <div className="chips wrap">
             {servings.map((s, i) => <button key={i} className={`chip ${serving === i ? 'on' : ''}`} onClick={() => setServing(i)}>{s.label} · {s.g} g</button>)}
-            <button className={`chip ${serving === -1 ? 'on' : ''}`} onClick={() => setServing(-1)}>Gram</button>
+            <button className={`chip ${serving === -1 ? 'on' : ''}`} onClick={() => { setGrams(Math.round(g)); setServing(-1) }}>Gram</button>
           </div>
         )}
         {serving >= 0 ? (
@@ -145,13 +182,31 @@ function AmountSheet({ food, day, meal, onClose, onAdded }: { food: Food; day: s
           <div className="stat"><b>{v.c}</b><span>karb.</span></div>
           <div className="stat"><b>{v.f}</b><span>yağ</span></div>
         </div>
-        <select className="input" value={m} onChange={(e) => setM(e.target.value as Meal)}>
-          {MEALS.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-        </select>
-        <div className="dialog-actions">
-          <button className="btn" onClick={onClose}>Vazgeç</button>
-          <button className="btn primary" onClick={add}>Ekle</button>
+        <div className="fields">
+          <label className="field" htmlFor="amt-meal">Öğün
+            <select id="amt-meal" value={m} onChange={(e) => setM(e.target.value as Meal)}>
+              {MEALS.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </label>
+          {entry && <label className="field" htmlFor="amt-date">Gün<input id="amt-date" type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></label>}
         </div>
+        {entry ? (
+          <>
+            <div className="dialog-actions">
+              <button className="btn" onClick={onClose}>Vazgeç</button>
+              <button className="btn primary" onClick={save}>Kaydet</button>
+            </div>
+            <div className="row">
+              <button className="btn sm grow" onClick={duplicate}>Kopyasını ekle</button>
+              <button className="btn sm grow danger" onClick={remove}>Sil</button>
+            </div>
+          </>
+        ) : (
+          <div className="dialog-actions">
+            <button className="btn" onClick={onClose}>Vazgeç</button>
+            <button className="btn primary" onClick={save}>Ekle</button>
+          </div>
+        )}
       </div>
     </div>
   )
