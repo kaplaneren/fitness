@@ -4,7 +4,48 @@ import { useState } from 'react'
 import { db, setKV, type Workout } from '../db'
 import { useExercises } from '../hooks'
 import { e1rm, fmtDate, fmtDuration, fmtKg, workoutSetCount, workoutVolume } from '../lib/calc'
-import { analyzeWorkout, bestE1rmByExercise } from '../lib/analysis'
+import { DAY, analyzeWorkout, bestE1rmByExercise, trend } from '../lib/analysis'
+import LineChart from '../components/LineChart'
+import { ExerciseDetail } from './Exercises'
+
+function HistoryCharts() {
+  const workouts = useLiveQuery(() => db.workouts.orderBy('startedAt').toArray(), []) ?? []
+  const { map } = useExercises()
+  const counts = new Map<string, number>()
+  for (const w of workouts) for (const e of w.exercises) if (map.get(e.exerciseId)?.kind === 'weight') counts.set(e.exerciseId, (counts.get(e.exerciseId) ?? 0) + 1)
+  const options = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id)
+  const [sel, setSel] = useState<string>('')
+  const [metric, setMetric] = useState<'e1rm' | 'max' | 'vol'>('e1rm')
+  const id = sel || options[0]
+  if (!id) return null
+  const series = workouts.flatMap((w) => {
+    const sets = w.exercises.filter((e) => e.exerciseId === id).flatMap((e) => e.sets.filter((s) => s.type !== 'warmup'))
+    if (!sets.length) return []
+    const v = metric === 'e1rm' ? Math.max(0, ...sets.filter((s) => (s.reps ?? 99) <= 12).map((s) => e1rm(s.weight, s.reps)))
+      : metric === 'max' ? Math.max(0, ...sets.map((s) => s.weight ?? 0))
+      : sets.reduce((a, s) => a + (s.weight ?? 0) * (s.reps ?? 0), 0)
+    return v > 0 ? [{ t: w.startedAt, v }] : []
+  })
+  const tr = metric === 'e1rm' ? trend(series.filter((p) => p.t > Date.now() - 70 * DAY)) : null
+  const last = series[series.length - 1]
+  const proj = tr && tr.slope > 0 && last ? [last, { t: last.t + 28 * DAY, v: tr.at(last.t + 28 * DAY) }] : undefined
+  return (
+    <div className="card">
+      <h3>Hareket grafikleri</h3>
+      <select id="hist-ex" className="input" value={id} onChange={(e) => setSel(e.target.value)}>
+        {options.map((o) => <option key={o} value={o}>{map.get(o)?.name} ({counts.get(o)} seans)</option>)}
+      </select>
+      <div className="seg">
+        <button className={metric === 'e1rm' ? 'on' : ''} onClick={() => setMetric('e1rm')}>Tahmini 1RM</button>
+        <button className={metric === 'max' ? 'on' : ''} onClick={() => setMetric('max')}>Maks. kg</button>
+        <button className={metric === 'vol' ? 'on' : ''} onClick={() => setMetric('vol')}>Hacim</button>
+      </div>
+      <LineChart points={series} projection={proj} unit=" kg" />
+      {tr && tr.slope > 0 && <p className="small">Eğilim haftada <b>+{fmtKg(tr.slope)} kg</b>; kesikli çizgi 4 haftalık tahmin.</p>}
+      {series.length >= 2 && metric !== 'e1rm' && <p className="small">İlk seanstan bu yana <b>{fmtKg(series[series.length - 1].v - series[0].v)} kg</b> fark.</p>}
+    </div>
+  )
+}
 
 export function HistoryList() {
   const workouts = useLiveQuery(() => db.workouts.orderBy('startedAt').reverse().toArray(), []) ?? []
@@ -17,6 +58,7 @@ export function HistoryList() {
   return (
     <div className="stack">
       {workouts.length === 0 && <p className="muted">Bitirdiğin antrenmanlar burada görünecek.</p>}
+      {workouts.length > 0 && <HistoryCharts />}
       {[...byMonth].map(([month, list]) => (
         <section key={month} className="stack">
           <span className="section-label">{month} · {list.length} antrenman</span>
@@ -62,6 +104,7 @@ export function WorkoutDetail({ w, onClose, justFinished }: { w: Workout; onClos
     return list
   }, [w.id, map]) ?? []
   const analysis = analyzeWorkout(w, map)
+  const [openEx, setOpenEx] = useState<string | null>(null)
 
   const remove = async () => { if (await ask('Bu antrenman silinsin mi?', { danger: true, ok: 'Sil' })) { await db.workouts.delete(w.id!); onClose() } }
   const edit = async () => {
@@ -110,7 +153,7 @@ export function WorkoutDetail({ w, onClose, justFinished }: { w: Workout; onClos
           let n = 0
           return (
             <div key={i} className="card">
-              <h3>{info?.name ?? e.exerciseId}</h3>
+              <button className="row-between" onClick={() => setOpenEx(e.exerciseId)} style={{ textAlign: 'left' }}><h3>{info?.name ?? e.exerciseId}</h3><span className="link">Grafik ›</span></button>
               <table className="sets read">
                 <tbody>
                   {e.sets.map((s, si) => (
@@ -127,6 +170,7 @@ export function WorkoutDetail({ w, onClose, justFinished }: { w: Workout; onClos
         })}
         <button className="btn danger block" onClick={remove}>Antrenmanı sil</button>
       </div>
+      {openEx && map.get(openEx) && <ExerciseDetail ex={map.get(openEx)!} onClose={() => setOpenEx(null)} />}
     </div>
   )
 }

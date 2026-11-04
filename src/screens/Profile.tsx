@@ -63,6 +63,8 @@ export default function ProfileScreen() {
           <Num id="p-bw" label="Kilo (kg)" value={profile.bodyweight} step="0.1" onChange={(v) => update({ bodyweight: v ?? 0 })} />
           <Num id="p-h" label="Boy (cm)" value={profile.height} onChange={(v) => update({ height: v ?? 0 })} />
           <Num id="p-age" label="Yaş" value={profile.age} onChange={(v) => update({ age: v ?? 0 })} />
+          <Num id="p-tw" label="Hedef kilo (kg)" value={profile.targetWeight} step="0.1" onChange={(v) => update({ targetWeight: v })} />
+          <Num id="p-wt" label="Haftalık antrenman hedefi" value={profile.weeklyTarget} onChange={(v) => update({ weeklyTarget: v ?? 3 })} />
         </div>
         <div className="seg">
           <button className={profile.sex === 'm' ? 'on' : ''} onClick={() => update({ sex: 'm' })}>Erkek</button>

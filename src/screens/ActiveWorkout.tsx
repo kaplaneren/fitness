@@ -154,6 +154,11 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
                   {info.alt.map((a) => <button key={a} className="link" onClick={() => swapExercise(i, a)}>{map.get(a)?.name ?? a}</button>)}
                 </div>
               ) : null}
+              {ex.advice && (
+                <p className="small advice" data-tone={ex.adviceTone}>
+                  <b>{ex.adviceTone === 'up' ? '▲ Öneri' : ex.adviceTone === 'down' ? '▼ Öneri' : 'Öneri'}{ex.target ? ` · hedef ${ex.target}` : ''}:</b> {ex.advice}
+                </p>
+              )}
               {info?.note && <p className="muted small">{info.note}</p>}
 
               {menu === i && (

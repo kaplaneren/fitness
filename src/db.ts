@@ -20,6 +20,10 @@ export interface WorkoutExercise {
   restSec: number
   note?: string
   superset?: string
+  /** Rutindeki tekrar aralığı (ör. "8-12") */
+  target?: string
+  advice?: string
+  adviceTone?: 'up' | 'same' | 'down' | 'new'
 }
 
 export interface Workout {
@@ -82,6 +86,8 @@ export interface Profile {
   proteinTarget?: number
   fatTarget?: number
   waterTarget: number
+  targetWeight?: number
+  weeklyTarget: number
 }
 
 export const DEFAULT_PROFILE: Profile = {
@@ -97,7 +103,9 @@ export const DEFAULT_PROFILE: Profile = {
   theme: 'system',
   activity: 1.45,
   goal: 'cut',
-  waterTarget: 10
+  waterTarget: 10,
+  targetWeight: 76,
+  weeklyTarget: 4
 }
 
 export interface Food {

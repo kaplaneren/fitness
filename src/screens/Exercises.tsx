@@ -9,7 +9,9 @@ import FlagBadges from '../components/FlagBadges'
 import BodyMap from '../components/BodyMap'
 import LineChart from '../components/LineChart'
 import { e1rm, fmtDate, fmtKg } from '../lib/calc'
-import { DAY, hasStandard, levelOf, liftScore, nextLevelWeight, trend, workingWeight } from '../lib/analysis'
+import { repMaxes } from '../lib/insights'
+import { DAY, LEVELS, hasStandard, levelOf, liftScore, nextLevelWeight, standardsFor, trend, workingWeight } from '../lib/analysis'
+import { LevelScale } from './Progress'
 
 export default function ExerciseLibrary({ onClose, initialMuscle }: { onClose: () => void; initialMuscle?: Muscle | null }) {
   const [query, setQuery] = useState('')
@@ -63,6 +65,7 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
     return ws.flatMap((w) => w.exercises.filter((e) => e.exerciseId === ex.id).map((e) => ({ date: w.startedAt, sets: e.sets.filter((s) => s.type !== 'warmup') })))
   }, [ex.id]) ?? []
   const all = history.flatMap((h) => h.sets)
+  const rm = useLiveQuery(async () => repMaxes(await db.workouts.toArray(), ex.id), [ex.id]) ?? {}
   const best1rm = Math.max(0, ...all.map((s) => (s.reps && s.reps <= 12 ? e1rm(s.weight, s.reps) : 0)))
   const maxW = Math.max(0, ...all.map((s) => s.weight ?? 0))
   const maxReps = Math.max(0, ...all.map((s) => s.reps ?? 0))
@@ -122,9 +125,9 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
         {score > 0 && (
           <div className="card">
             <div className="card-title"><h3>Güç seviyesi</h3><span className="pill">{levelOf(score)}</span></div>
-            <div className="level-scale">{[0, 1, 2, 3, 4].map((i) => <div key={i} className={score >= (i + 1) * 20 ? 'on' : ''} />)}</div>
-            <p className="small">1RM / vücut ağırlığı: <b>{(best1rm / profile.bodyweight).toFixed(2)}</b>{next && <> · {next.level} seviyesi için yaklaşık <b>{fmtKg(next.kg)} kg</b> 1RM</>}</p>
-            <p className="muted tiny">Seviyeler bu uygulamanın yaklaşık tablosudur.</p>
+            <LevelScale p={score} />
+            <p className="small">Erkeklerin yaklaşık <b>%{Math.round(score)}</b>'inden güçlü · 1RM kilonun <b>{(best1rm / profile.bodyweight).toFixed(2)}</b> katı{next && <> · {next.level} için <b>{fmtKg(next.kg)} kg</b></>}</p>
+            {standardsFor(ex.id, profile.bodyweight) && <p className="muted tiny">strengthlevel.com ({fmtKg(profile.bodyweight)} kg): {standardsFor(ex.id, profile.bodyweight)!.map((k, i) => `${LEVELS[i]} ${fmtKg(k)}`).join(' · ')}{ex.equipment === 'dumbbell' ? ' (tek dambıl)' : ''}</p>}
           </div>
         )}
 
@@ -137,6 +140,19 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
             </div>
             <LineChart points={series} projection={proj?.pts} unit=" kg" />
             {proj && <p className="small">Son 10 haftalık eğilim: haftada <b>+{fmtKg(proj.slope)} kg</b>. Bu hızla 12 hafta sonra tahmini 1RM ≈ <b>{fmtKg(proj.in12)} kg</b>.</p>}
+          </div>
+        )}
+
+        {Object.keys(rm).length > 0 && (
+          <div className="card">
+            <h3>Tekrar rekorları</h3>
+            <table className="sets read">
+              <tbody>
+                {Object.entries(rm).sort((a, b) => +a[0] - +b[0]).map(([reps, r]) => (
+                  <tr key={reps}><td><b>{reps} tekrar</b></td><td className="mono">{fmtKg(r.w)} kg</td><td className="muted tiny">{fmtDate(r.t)}</td><td className="muted tiny">1RM ≈ {fmtKg(e1rm(r.w, +reps))}</td></tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 

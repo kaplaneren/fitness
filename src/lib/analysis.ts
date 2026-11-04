@@ -34,66 +34,86 @@ export function volumeStatus(m: Muscle, sets: number): 'low' | 'ok' | 'high' {
   return 'ok'
 }
 
-/* ---------- Güç skoru ---------- */
-// Vücut ağırlığına oranla 1RM eşikleri: Başlangıç, Acemi, Orta, İleri, Elit (erkek).
-// Bu uygulamaya ait yaklaşık tablodur; dambıl hareketlerinde tek dambıl ağırlığı esas alınır.
+/* ---------- Güç seviyesi (strengthlevel.com standartları) ---------- */
+// strengthlevel.com erkek standartları, 80 kg vücut ağırlığı için 1RM (kg):
+// Başlangıç / Acemi / Orta / İleri / Elit. Dambıllarda tek dambıl ağırlığı.
+// Farklı kilolar için allometrik ölçekleme (kilo/80)^0,67 uygulanır.
+// Seviyeler yüzdelik dilime karşılık gelir: %5, %20, %50, %80, %95.
 export const LEVELS = ['Başlangıç', 'Acemi', 'Orta', 'İleri', 'Elit'] as const
-const STANDARDS: Record<string, number[]> = {
-  bench_press: [0.5, 0.75, 1.0, 1.5, 2.0],
-  incline_bench: [0.45, 0.65, 0.9, 1.3, 1.7],
-  db_bench_press: [0.15, 0.25, 0.4, 0.6, 0.8],
-  incline_db_press: [0.13, 0.22, 0.35, 0.52, 0.7],
-  machine_chest_press: [0.4, 0.65, 0.95, 1.35, 1.8],
-  lat_pulldown: [0.45, 0.65, 0.9, 1.2, 1.5],
-  lat_pulldown_close: [0.45, 0.65, 0.9, 1.2, 1.5],
-  seated_cable_row: [0.45, 0.65, 0.9, 1.25, 1.6],
-  chest_supported_row: [0.4, 0.6, 0.85, 1.15, 1.5],
-  barbell_row: [0.4, 0.65, 0.9, 1.25, 1.6],
-  machine_shoulder_press: [0.3, 0.5, 0.75, 1.0, 1.35],
-  seated_db_press: [0.1, 0.18, 0.28, 0.4, 0.55],
-  ohp: [0.35, 0.55, 0.75, 1.0, 1.3],
-  leg_press: [1.0, 1.75, 2.5, 3.5, 4.5],
-  belt_squat: [0.75, 1.1, 1.5, 2.0, 2.6],
-  squat: [0.75, 1.0, 1.5, 2.0, 2.5],
-  hip_thrust: [0.75, 1.25, 1.75, 2.5, 3.25],
-  deadlift: [1.0, 1.25, 1.75, 2.5, 3.0],
-  rdl: [0.75, 1.0, 1.4, 1.9, 2.4],
-  barbell_curl: [0.2, 0.4, 0.6, 0.85, 1.15],
-  ez_curl: [0.2, 0.4, 0.6, 0.85, 1.15],
-  db_curl: [0.1, 0.15, 0.25, 0.37, 0.5]
+const PCT = [5, 20, 50, 80, 95]
+export const STANDARDS_80: Record<string, number[]> = {
+  bench_press: [56, 75, 98, 124, 151],
+  incline_bench: [50, 66, 87, 109, 134],
+  db_bench_press: [19, 28, 40, 53, 68],
+  incline_db_press: [22, 29, 39, 50, 62],
+  machine_chest_press: [39, 61, 89, 123, 160],
+  squat: [75, 101, 132, 168, 206],
+  deadlift: [89, 119, 155, 196, 239],
+  ohp: [33, 46, 62, 81, 101],
+  seated_db_press: [15, 22, 31, 42, 54],
+  machine_shoulder_press: [29, 50, 76, 109, 145],
+  barbell_row: [48, 66, 88, 114, 141],
+  t_bar_row: [48, 66, 88, 114, 141],
+  lat_pulldown: [47, 64, 85, 108, 133],
+  lat_pulldown_close: [47, 64, 85, 108, 133],
+  seated_cable_row: [47, 65, 87, 112, 140],
+  chest_supported_row: [47, 65, 87, 112, 140],
+  leg_press: [109, 162, 230, 309, 395],
+  hip_thrust: [56, 96, 149, 213, 285],
+  rdl: [65, 92, 125, 163, 203],
+  leg_extension: [48, 72, 103, 140, 180],
+  lying_leg_curl: [30, 46, 66, 90, 116],
+  seated_leg_curl: [39, 58, 83, 112, 144],
+  barbell_curl: [22, 33, 46, 63, 80],
+  ez_curl: [22, 33, 46, 63, 80],
+  db_curl: [8, 14, 22, 32, 42],
+  triceps_pushdown: [22, 36, 56, 80, 107],
+  triceps_pushdown_bar: [22, 36, 56, 80, 107]
 }
 
-export const PATTERNS: { name: string; ids: string[] }[] = [
-  { name: 'Yatay itiş', ids: ['bench_press', 'incline_bench', 'db_bench_press', 'incline_db_press', 'machine_chest_press'] },
-  { name: 'Dikey çekiş', ids: ['lat_pulldown', 'lat_pulldown_close'] },
-  { name: 'Yatay çekiş', ids: ['seated_cable_row', 'chest_supported_row', 'barbell_row'] },
-  { name: 'Dikey itiş', ids: ['machine_shoulder_press', 'seated_db_press', 'ohp'] },
-  { name: 'Bacak', ids: ['leg_press', 'belt_squat', 'squat'] },
-  { name: 'Kalça', ids: ['hip_thrust', 'deadlift', 'rdl'] },
-  { name: 'Kol', ids: ['barbell_curl', 'ez_curl', 'db_curl'] }
+export const REGIONS: { name: string; ids: string[]; muscles: Muscle[] }[] = [
+  { name: 'Göğüs', ids: ['bench_press', 'incline_bench', 'db_bench_press', 'incline_db_press', 'machine_chest_press'], muscles: ['gogus'] },
+  { name: 'Sırt', ids: ['lat_pulldown', 'lat_pulldown_close', 'seated_cable_row', 'chest_supported_row', 'barbell_row', 't_bar_row'], muscles: ['kanat', 'sirt_ust', 'trapez'] },
+  { name: 'Omuz', ids: ['ohp', 'seated_db_press', 'machine_shoulder_press'], muscles: ['on_omuz', 'yan_omuz', 'arka_omuz'] },
+  { name: 'Kol', ids: ['barbell_curl', 'ez_curl', 'db_curl', 'triceps_pushdown', 'triceps_pushdown_bar'], muscles: ['biceps', 'triceps', 'onkol'] },
+  { name: 'Ön bacak', ids: ['leg_press', 'squat', 'leg_extension'], muscles: ['on_bacak', 'ic_bacak'] },
+  { name: 'Kalça ve arka bacak', ids: ['hip_thrust', 'rdl', 'deadlift', 'lying_leg_curl', 'seated_leg_curl'], muscles: ['kalca', 'arka_bacak', 'bel'] }
 ]
+/** Geriye dönük uyumluluk */
+export const PATTERNS = REGIONS
 
-export function hasStandard(id: string) { return id in STANDARDS }
+export function hasStandard(id: string) { return id in STANDARDS_80 }
 
-/** 0-100 puan: eşikler 20/40/60/80/100'e denk gelir. */
-export function liftScore(id: string, oneRm: number, bodyweight: number) {
-  const st = STANDARDS[id]
-  if (!st || !oneRm || !bodyweight) return 0
-  const r = oneRm / bodyweight
-  if (r <= st[0]) return Math.max(0, (r / st[0]) * 20)
-  for (let i = 1; i < st.length; i++) if (r <= st[i]) return 20 * i + ((r - st[i - 1]) / (st[i] - st[i - 1])) * 20
-  return 100
-}
-export function levelOf(score: number) {
-  if (score < 20) return 'Yeni'
-  return LEVELS[Math.min(4, Math.floor(score / 20) - 1)]
-}
-export function nextLevelWeight(id: string, score: number, bodyweight: number) {
-  const st = STANDARDS[id]
+export function standardsFor(id: string, bodyweight: number) {
+  const st = STANDARDS_80[id]
   if (!st) return null
-  const i = Math.min(4, Math.floor(score / 20))
-  if (score >= 100) return null
-  return { level: LEVELS[i], kg: Math.round(st[i] * bodyweight * 2) / 2 }
+  const k = Math.pow((bodyweight || 80) / 80, 0.67)
+  return st.map((x) => Math.round(x * k * 2) / 2)
+}
+
+/** Yüzdelik dilim (0-100): kaç erkekten güçlü olduğun. */
+export function liftScore(id: string, oneRm: number, bodyweight: number) {
+  const st = standardsFor(id, bodyweight)
+  if (!st || !oneRm) return 0
+  if (oneRm <= st[0]) return Math.max(0, (oneRm / st[0]) * PCT[0])
+  for (let i = 1; i < st.length; i++) if (oneRm <= st[i]) return PCT[i - 1] + ((oneRm - st[i - 1]) / (st[i] - st[i - 1])) * (PCT[i] - PCT[i - 1])
+  return Math.min(100, 95 + ((oneRm - st[4]) / (st[4] - st[3])) * 5)
+}
+export function levelIndex(p: number) {
+  let i = -1
+  for (let k = 0; k < PCT.length; k++) if (p >= PCT[k]) i = k
+  return i
+}
+export function levelOf(p: number) {
+  const i = levelIndex(p)
+  return i < 0 ? 'Yeni' : LEVELS[i]
+}
+export function nextLevelWeight(id: string, p: number, bodyweight: number) {
+  const st = standardsFor(id, bodyweight)
+  if (!st) return null
+  const i = levelIndex(p) + 1
+  if (i > 4) return null
+  return { level: LEVELS[i], kg: st[i] }
 }
 
 export function bestE1rmByExercise(workouts: Workout[], since = 0) {
@@ -111,19 +131,29 @@ export function bestE1rmByExercise(workouts: Workout[], since = 0) {
 
 export function strengthProfile(workouts: Workout[], bodyweight: number) {
   const best = bestE1rmByExercise(workouts)
-  const patterns = PATTERNS.map((p) => {
-    let top = { id: '', score: 0, e1: 0 }
-    for (const id of p.ids) {
-      const b = best[id]
-      if (!b) continue
-      const sc = liftScore(id, b.v, bodyweight)
-      if (sc > top.score) top = { id, score: sc, e1: b.v }
-    }
-    return { ...p, ...top }
+  const regions = REGIONS.map((r) => {
+    const lifts = r.ids.filter((id) => best[id]).map((id) => ({ id, e1: best[id].v, score: liftScore(id, best[id].v, bodyweight) })).sort((x, y) => y.score - x.score)
+    // Bölge puanı: en iyi iki hareketin ortalaması (tek harekete aşırı bağımlılığı azaltır)
+    const top = lifts.slice(0, 2)
+    const score = top.length ? top.reduce((a, l) => a + l.score, 0) / top.length : 0
+    return { ...r, lifts, score, id: lifts[0]?.id ?? '', e1: lifts[0]?.e1 ?? 0 }
   })
-  const done = patterns.filter((p) => p.score > 0)
+  const done = regions.filter((p) => p.score > 0)
   const total = done.length ? done.reduce((a, p) => a + p.score, 0) / done.length : 0
-  return { patterns, total, covered: done.length }
+  const notes: string[] = []
+  if (done.length >= 3) {
+    const sorted = [...done].sort((x, y) => y.score - x.score)
+    if (sorted[0].score - total > 12) notes.push(`En güçlü bölgen ${sorted[0].name}: ortalamanın ${Math.round(sorted[0].score - total)} puan üstünde.`)
+    const weak = sorted[sorted.length - 1]
+    if (total - weak.score > 12) notes.push(`Zayıf halka ${weak.name}: ortalamanın ${Math.round(total - weak.score)} puan altında. Programda bu bölgeye öncelik ver.`)
+    const g = (n: string) => regions.find((r) => r.name === n)?.score ?? 0
+    const push = (g('Göğüs') + g('Omuz')) / ((g('Göğüs') ? 1 : 0) + (g('Omuz') ? 1 : 0) || 1)
+    if (g('Sırt') && push && push - g('Sırt') > 15) notes.push('İtiş gücün çekiş gücünden belirgin yüksek. Postür ve skolyoz için sırt hareketlerine ağırlık ver.')
+    const upper = (g('Göğüs') + g('Sırt') + g('Omuz')) / 3, lower = (g('Ön bacak') + g('Kalça ve arka bacak')) / 2
+    if (g('Ön bacak') && g('Kalça ve arka bacak') && Math.abs(upper - lower) > 15) notes.push(`${upper > lower ? 'Üst vücut alt vücuttan' : 'Alt vücut üst vücuttan'} belirgin güçlü.`)
+    if (!notes.length) notes.push('Bölgeler arasında güç dengesi iyi; belirgin bir zayıf halka yok.')
+  }
+  return { patterns: regions, regions, total, covered: done.length, notes }
 }
 
 /* ---------- Antrenman analizi ---------- */

@@ -1,4 +1,6 @@
 import { db, getProfile, setKV, type Routine, type SetEntry, type Workout, type WorkoutExercise } from '../db'
+import { BUILTIN_EXERCISES } from '../data/exercises'
+import { parseRange, recommend } from './progression'
 
 /** Hareketin en son yapıldığı antrenmandaki setler. */
 export async function lastSetsFor(exerciseId: string, beforeTs = Infinity): Promise<SetEntry[] | null> {
@@ -11,21 +13,25 @@ export async function lastSetsFor(exerciseId: string, beforeTs = Infinity): Prom
   return null
 }
 
-export async function makeExercise(exerciseId: string, setCount = 3, restSec?: number, superset?: string): Promise<WorkoutExercise> {
+export async function makeExercise(exerciseId: string, setCount = 3, restSec?: number, superset?: string, repRange?: string): Promise<WorkoutExercise> {
   const profile = await getProfile()
   const last = await lastSetsFor(exerciseId)
   const work = last?.filter((s) => s.type !== 'warmup') ?? []
-  const sets: SetEntry[] = Array.from({ length: setCount }, (_, i) => {
+  const ex = BUILTIN_EXERCISES.find((e) => e.id === exerciseId) ?? (await db.customExercises.get(exerciseId))
+  const adv = recommend(ex, exerciseId, await db.workouts.toArray(), parseRange(repRange), setCount)
+  const n = adv?.sets ?? setCount
+  const sets: SetEntry[] = Array.from({ length: n }, (_, i) => {
     const prev = work[i] ?? work[work.length - 1]
+    if (adv && adv.tone !== 'new') return { type: 'normal', done: false, weight: adv.weight, reps: adv.reps[i] ?? adv.reps[adv.reps.length - 1] }
     return { type: 'normal', done: false, weight: prev?.weight, reps: prev?.reps, seconds: prev?.seconds }
   })
-  return { exerciseId, sets, restSec: restSec ?? profile.defaultRest, superset }
+  return { exerciseId, sets, restSec: restSec ?? profile.defaultRest, superset, target: repRange, advice: adv?.text, adviceTone: adv?.tone }
 }
 
 export async function startWorkout(routine?: Routine) {
   const exercises: WorkoutExercise[] = []
   if (routine) {
-    for (const r of routine.exercises) exercises.push(await makeExercise(r.exerciseId, r.sets, r.restSec, r.superset))
+    for (const r of routine.exercises) exercises.push(await makeExercise(r.exerciseId, r.sets, r.restSec, r.superset, r.reps))
   }
   const w: Workout = {
     name: routine?.name ?? 'Serbest antrenman',

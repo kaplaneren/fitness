@@ -2,6 +2,17 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.3.0', date: '4 Kasım 2026', items: [
+    'Haftalık rapor: geçen haftayla kıyas, koç notları, haftanın rekorları',
+    'strengthlevel.com standartlarıyla bölge bazlı güç haritası, toplam güç ve vücudun kendi içinde dengesi',
+    'Sonraki antrenman için geçmişe göre dinamik ağırlık ve tekrar önerisi',
+    'Özet ekranında haftalık takvim',
+    'Geçmişte 1RM, maks. kg ve hacim grafikleri, 4 haftalık tahmin',
+    'Kilo, bel ve yağ oranı için hareketli ortalama; bel ve kilodan yağ tahmini; hedef kiloya varış tarihi',
+    'Gerçek kalori harcaması (adaptif TDEE), plato uyarıları, itiş/çekiş dengesi, devamlılık takvimi',
+    'Beslenme analizi: makro dağılımı, hedef uyumu, hafta içi ve hafta sonu farkı',
+    'Hareket detayında tekrar rekorları tablosu'
+  ] },
   { v: '0.2.0', date: '4 Kasım 2026', items: [
     'Beslenme takibi: günlük öğünler, makro hedefleri, su, barkod ve Open Food Facts araması',
     'Program sihirbazı: gün sayısı, devamlılık, süre ve hedefe göre program',
