@@ -1,0 +1,292 @@
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useRef, useState } from 'react'
+import { db, setKV, type SetEntry, type SetType, type Workout, type WorkoutExercise } from '../db'
+import { beep, unlockAudio, useExercises, useNow, useProfile, useWakeLock } from '../hooks'
+import { e1rm, fmtDuration, fmtKg, platesFor, warmupSets } from '../lib/calc'
+import { discardWorkout, finishWorkout, lastSetsFor, makeExercise } from '../lib/workout'
+import ExercisePicker from '../components/ExercisePicker'
+import FlagBadges from '../components/FlagBadges'
+
+interface Rest { endAt: number; total: number }
+
+const TYPE_ORDER: SetType[] = ['normal', 'warmup', 'drop', 'failure']
+const TYPE_LABEL: Record<SetType, string> = { normal: '', warmup: 'I', drop: 'D', failure: 'F' }
+
+export default function ActiveWorkout({ workout, onMinimize }: { workout: Workout; onMinimize: () => void }) {
+  const [w, setW] = useState<Workout>(workout)
+  const { map } = useExercises()
+  const profile = useProfile()
+  const rest = (useLiveQuery(() => db.kv.get('rest'), [])?.value as Rest | null) ?? null
+  const now = useNow(250)
+  const [picker, setPicker] = useState<null | { mode: 'add' } | { mode: 'swap'; index: number }>(null)
+  const [menu, setMenu] = useState<number | null>(null)
+  const [plateFor, setPlateFor] = useState<number | null>(null)
+  const [prev, setPrev] = useState<Record<string, SetEntry[] | null>>({})
+  const [best, setBest] = useState<Record<string, number>>({})
+  const fired = useRef<number | null>(null)
+  useWakeLock(true)
+
+  // Kayıt
+  const save = (next: Workout) => { setW(next); setKV('active', next) }
+  const updEx = (i: number, fn: (e: WorkoutExercise) => WorkoutExercise) =>
+    save({ ...w, exercises: w.exercises.map((e, j) => (j === i ? fn(e) : e)) })
+  const updSet = (i: number, si: number, patch: Partial<SetEntry>) =>
+    updEx(i, (e) => ({ ...e, sets: e.sets.map((s, k) => (k === si ? { ...s, ...patch } : s)) }))
+
+  // Önceki performans ve rekorlar
+  const ids = w.exercises.map((e) => e.exerciseId).join(',')
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const p: Record<string, SetEntry[] | null> = {}
+      const b: Record<string, number> = {}
+      const history = await db.workouts.toArray()
+      for (const id of new Set(w.exercises.map((e) => e.exerciseId))) {
+        p[id] = await lastSetsFor(id, w.startedAt)
+        b[id] = Math.max(0, ...history.flatMap((h) => h.exercises.filter((e) => e.exerciseId === id).flatMap((e) => e.sets.map((s) => e1rm(s.weight, s.reps)))))
+      }
+      if (alive) { setPrev(p); setBest(b) }
+    })()
+    return () => { alive = false }
+  }, [ids, w.startedAt])
+
+  // Dinlenme sayacı
+  const restLeft = rest ? Math.ceil((rest.endAt - now) / 1000) : 0
+  useEffect(() => {
+    if (rest && restLeft <= 0 && fired.current !== rest.endAt) {
+      fired.current = rest.endAt
+      beep()
+      setKV('rest', null)
+    }
+  }, [rest, restLeft])
+  const startRest = (sec: number) => { if (sec > 0) setKV('rest', { endAt: Date.now() + sec * 1000, total: sec }) }
+  const adjustRest = (d: number) => rest && setKV('rest', { endAt: rest.endAt + d * 1000, total: Math.max(1, rest.total + d) })
+
+  const toggleDone = (i: number, si: number) => {
+    unlockAudio()
+    const ex = w.exercises[i]
+    const s = ex.sets[si]
+    const p = prev[ex.exerciseId]?.filter((x) => x.type !== 'warmup')
+    const fill: Partial<SetEntry> = {}
+    if (!s.done) {
+      // Boş alanları önceki değerle doldur
+      const ref = p?.[si] ?? ex.sets[si - 1]
+      if (s.weight == null && ref?.weight != null) fill.weight = ref.weight
+      if (s.reps == null && ref?.reps != null) fill.reps = ref.reps
+      if (s.seconds == null && ref?.seconds != null) fill.seconds = ref.seconds
+    }
+    updSet(i, si, { done: !s.done, ...fill })
+    if (!s.done) {
+      // Süpersette grubun son hareketinden sonra dinlen
+      const next = w.exercises[i + 1]
+      const inSuperset = ex.superset && next?.superset === ex.superset
+      if (!inSuperset) startRest(ex.restSec)
+    }
+  }
+
+  const addExercises = async (idsToAdd: string[]) => {
+    const added = await Promise.all(idsToAdd.map((id) => makeExercise(id, 3)))
+    save({ ...w, exercises: [...w.exercises, ...added] })
+    setPicker(null)
+  }
+  const swapExercise = async (i: number, id: string) => {
+    const fresh = await makeExercise(id, w.exercises[i].sets.length, w.exercises[i].restSec, w.exercises[i].superset)
+    save({ ...w, exercises: w.exercises.map((e, j) => (j === i ? fresh : e)) })
+    setPicker(null)
+  }
+
+  const finish = async () => {
+    const done = w.exercises.reduce((t, e) => t + e.sets.filter((s) => s.done).length, 0)
+    if (!done) { if (confirm('Hiç set tamamlanmadı. Antrenmanı iptal edeyim mi?')) await discardWorkout(); return }
+    const undone = w.exercises.reduce((t, e) => t + e.sets.filter((s) => !s.done).length, 0)
+    if (!confirm(undone ? `${undone} set işaretlenmemiş; bunlar kaydedilmeyecek. Bitirilsin mi?` : 'Antrenman bitirilsin mi?')) return
+    await finishWorkout(w)
+  }
+  const cancel = async () => { if (confirm('Antrenman silinsin mi? Bu geri alınamaz.')) await discardWorkout() }
+
+  return (
+    <div className="sheet workout">
+      <div className="sheet-head">
+        <button className="btn ghost" onClick={onMinimize} aria-label="Küçült">⌄</button>
+        <span className="mono">{fmtDuration(now - w.startedAt)}</span>
+        <button className="btn primary sm" onClick={finish}>Bitir</button>
+      </div>
+
+      {rest && restLeft > 0 && (
+        <div className="rest">
+          <div className="rest-bar" style={{ width: `${Math.min(100, (restLeft / rest.total) * 100)}%` }} />
+          <button onClick={() => adjustRest(-15)}>−15</button>
+          <span className="mono big">{fmtDuration(restLeft * 1000)}</span>
+          <button onClick={() => adjustRest(15)}>+15</button>
+          <button onClick={() => setKV('rest', null)}>Geç</button>
+        </div>
+      )}
+
+      <div className="sheet-body">
+        <input className="input title-input" value={w.name} onChange={(e) => save({ ...w, name: e.target.value })} />
+
+        {w.exercises.map((ex, i) => {
+          const info = map.get(ex.exerciseId)
+          const p = prev[ex.exerciseId] ?? []
+          const pWork = p.filter((s) => s.type !== 'warmup')
+          const kind = info?.kind ?? 'weight'
+          const restricted = info?.flags.some((f) => profile.restrictions.includes(f))
+          let workIdx = 0
+          return (
+            <section key={i} className={`card wex ${ex.superset ? 'ss' : ''}`}>
+              <div className="row-between">
+                <div>
+                  <strong className="ex-name">{info?.name ?? ex.exerciseId}</strong>
+                  {ex.superset && <span className="ss-tag">Süperset {ex.superset.toUpperCase()}</span>}
+                  {info && <FlagBadges flags={info.flags} active={profile.restrictions} />}
+                </div>
+                <button className="icon-btn" onClick={() => setMenu(menu === i ? null : i)} aria-label="Seçenekler">⋯</button>
+              </div>
+
+              {restricted && info?.alt?.length ? (
+                <div className="alt">
+                  Daha güvenli alternatif:{' '}
+                  {info.alt.map((a) => <button key={a} className="link" onClick={() => swapExercise(i, a)}>{map.get(a)?.name ?? a}</button>)}
+                </div>
+              ) : null}
+              {info?.note && <p className="muted small">{info.note}</p>}
+
+              {menu === i && (
+                <div className="menu">
+                  <button onClick={() => { setPicker({ mode: 'swap', index: i }); setMenu(null) }}>Hareketi değiştir</button>
+                  {kind === 'weight' && (
+                    <button onClick={() => {
+                      const top = ex.sets.find((s) => s.type !== 'warmup')?.weight ?? pWork[0]?.weight
+                      if (!top) { alert('Önce çalışma ağırlığını gir.'); return }
+                      const wu = warmupSets(top, profile.barWeight).map<SetEntry>((s) => ({ ...s, type: 'warmup', done: false }))
+                      updEx(i, (e) => ({ ...e, sets: [...wu, ...e.sets] })); setMenu(null)
+                    }}>Isınma setleri ekle</button>
+                  )}
+                  {kind === 'weight' && info?.equipment === 'barbell' && (
+                    <button onClick={() => { setPlateFor(ex.sets.find((s) => !s.done)?.weight ?? ex.sets[0]?.weight ?? profile.barWeight); setMenu(null) }}>Plaka hesapla</button>
+                  )}
+                  <label className="inline">Dinlenme
+                    <input type="number" inputMode="numeric" value={ex.restSec} onChange={(e) => updEx(i, (x) => ({ ...x, restSec: +e.target.value || 0 }))} /> sn
+                  </label>
+                  <button className="danger" onClick={() => { save({ ...w, exercises: w.exercises.filter((_, j) => j !== i) }); setMenu(null) }}>Hareketi kaldır</button>
+                </div>
+              )}
+
+              <table className="sets">
+                <thead>
+                  <tr>
+                    <th>Set</th><th>Önceki</th>
+                    {kind === 'time' ? <th>Süre (dk)</th> : <th>{kind === 'assisted' ? '−kg' : kind === 'reps' ? '+kg' : 'kg'}</th>}
+                    {kind !== 'time' && <th>Tekrar</th>}
+                    <th>✓</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ex.sets.map((s, si) => {
+                    const label = s.type === 'normal' ? String(++workIdx) : TYPE_LABEL[s.type]
+                    const ps = s.type === 'warmup' ? undefined : pWork[workIdx - 1]
+                    const isPr = s.done && s.type !== 'warmup' && kind === 'weight' && e1rm(s.weight, s.reps) > (best[ex.exerciseId] ?? 0) && (best[ex.exerciseId] ?? 0) > 0
+                    return (
+                      <tr key={si} className={`${s.done ? 'done' : ''} t-${s.type}`}>
+                        <td>
+                          <button className="set-type" onClick={() => updSet(i, si, { type: TYPE_ORDER[(TYPE_ORDER.indexOf(s.type) + 1) % 4] })}>{label}</button>
+                        </td>
+                        <td className="prev">{ps ? (kind === 'time' ? `${Math.round((ps.seconds ?? 0) / 60)} dk` : `${ps.weight ? fmtKg(ps.weight) + '×' : ''}${ps.reps ?? ''}`) : '—'}</td>
+                        {kind === 'time' ? (
+                          <td><NumInput value={s.seconds != null ? s.seconds / 60 : undefined} placeholder={ps?.seconds ? String(Math.round(ps.seconds / 60)) : ''} onChange={(v) => updSet(i, si, { seconds: v == null ? undefined : Math.round(v * 60) })} /></td>
+                        ) : (
+                          <>
+                            <td><NumInput value={s.weight} placeholder={ps?.weight != null ? fmtKg(ps.weight) : ''} onChange={(v) => updSet(i, si, { weight: v })} /></td>
+                            <td><NumInput value={s.reps} integer placeholder={ps?.reps != null ? String(ps.reps) : ''} onChange={(v) => updSet(i, si, { reps: v })} /></td>
+                          </>
+                        )}
+                        <td>
+                          <button className={`done-btn ${s.done ? 'on' : ''}`} onClick={() => toggleDone(i, si)} aria-label="Tamamlandı">{isPr ? '★' : '✓'}</button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <div className="row-between">
+                <button className="link" onClick={() => updEx(i, (e) => {
+                  const last = e.sets[e.sets.length - 1]
+                  return { ...e, sets: [...e.sets, { type: 'normal', done: false, weight: last?.weight, reps: last?.reps, seconds: last?.seconds }] }
+                })}>+ Set ekle</button>
+                {ex.sets.length > 1 && <button className="link muted" onClick={() => updEx(i, (e) => ({ ...e, sets: e.sets.slice(0, -1) }))}>Son seti sil</button>}
+              </div>
+            </section>
+          )
+        })}
+
+        <button className="btn block" onClick={() => setPicker({ mode: 'add' })}>+ Hareket ekle</button>
+
+        <div className="card">
+          <div className="fields">
+            <label>Ort. nabız<input type="number" inputMode="numeric" value={w.heartRateAvg ?? ''} onChange={(e) => save({ ...w, heartRateAvg: +e.target.value || undefined })} /></label>
+            <label>Maks. nabız<input type="number" inputMode="numeric" value={w.heartRateMax ?? ''} onChange={(e) => save({ ...w, heartRateMax: +e.target.value || undefined })} /></label>
+            <label>Kilo (kg)<input type="number" inputMode="decimal" placeholder={String(profile.bodyweight)} value={w.bodyweight ?? ''} onChange={(e) => save({ ...w, bodyweight: parseFloat(e.target.value.replace(',', '.')) || undefined })} /></label>
+          </div>
+          <textarea className="input" placeholder="Antrenman notu (ağrı, his, enerji…)" value={w.note ?? ''} onChange={(e) => save({ ...w, note: e.target.value })} />
+        </div>
+
+        <button className="btn danger block" onClick={cancel}>Antrenmanı iptal et</button>
+      </div>
+
+      {picker && (
+        <ExercisePicker
+          multi={picker.mode === 'add'}
+          onClose={() => setPicker(null)}
+          onPick={(picked) => (picker.mode === 'add' ? addExercises(picked) : swapExercise(picker.index, picked[0]))}
+        />
+      )}
+      {plateFor != null && <PlateModal initial={plateFor} onClose={() => setPlateFor(null)} />}
+    </div>
+  )
+}
+
+function NumInput({ value, onChange, placeholder, integer }: { value?: number; onChange: (v: number | undefined) => void; placeholder?: string; integer?: boolean }) {
+  const [text, setText] = useState(value != null ? String(value).replace('.', ',') : '')
+  useEffect(() => {
+    const parsed = parseFloat(text.replace(',', '.'))
+    if (value == null ? text !== '' && !isNaN(parsed) : parsed !== value) setText(value != null ? String(value).replace('.', ',') : '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+  return (
+    <input
+      className="num"
+      inputMode={integer ? 'numeric' : 'decimal'}
+      value={text}
+      placeholder={placeholder}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => {
+        const t = e.target.value.replace(/[^0-9.,]/g, '')
+        setText(t)
+        const n = parseFloat(t.replace(',', '.'))
+        onChange(t === '' || isNaN(n) ? undefined : n)
+      }}
+    />
+  )
+}
+
+function PlateModal({ initial, onClose }: { initial: number; onClose: () => void }) {
+  const profile = useProfile()
+  const [total, setTotal] = useState(initial)
+  const { out, rest } = platesFor(total, profile.barWeight, profile.plates)
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="card" onClick={(e) => e.stopPropagation()}>
+        <h3>Plaka hesaplayıcı</h3>
+        <label className="inline">Toplam
+          <input type="number" inputMode="decimal" value={total} onChange={(e) => setTotal(+e.target.value || 0)} /> kg
+        </label>
+        <p className="muted small">Bar: {profile.barWeight} kg · Her tarafa:</p>
+        <div className="plates">
+          {out.length ? out.map((p, i) => <span key={i} className="plate" style={{ height: 30 + p * 2.4 }}>{fmtKg(p)}</span>) : <span className="muted">Sadece bar</span>}
+        </div>
+        {rest > 0 && <p className="warn small">{fmtKg(rest)} kg eksik kalıyor (plaka yok).</p>}
+        <button className="btn block" onClick={onClose}>Kapat</button>
+      </div>
+    </div>
+  )
+}
