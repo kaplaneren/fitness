@@ -2,6 +2,11 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.6.0', date: '4 Kasım 2026', items: [
+    'Program sihirbazı ısınma ve kardiyo süresini ve hareketini soruyor; ısınma başa, kardiyo sona ekleniyor',
+    'Isınma ve kardiyo süresi toplam antrenman süresinden düşülüyor, ağırlık hareketleri kalan süreye sığacak kadar seçiliyor',
+    'Kardiyo ve ısınma süresi antrenmanda otomatik dolduruluyor'
+  ] },
   { v: '0.5.0', date: '4 Kasım 2026', items: [
     'Yakılan kalori artık diyetten düşülmüyor: adım ve antrenman ekstra açık sayılıyor (Profil\'den değiştirilebilir)',
     'Sağlık kısıtları herkese uygun hale geldi; omuz, dirsek, boyun, kalça, ayak bileği ve tansiyon eklendi',

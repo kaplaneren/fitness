@@ -72,7 +72,8 @@ export async function makeExercise(exerciseId: string, setCount = 3, restSec?: n
   const sets: SetEntry[] = Array.from({ length: n }, (_, i) => {
     const prev = work[i] ?? work[work.length - 1]
     if (adv && adv.tone !== 'new') return { type: 'normal', done: false, weight: adv.weight, reps: adv.reps[i] ?? adv.reps[adv.reps.length - 1] }
-    return { type: 'normal', done: false, weight: prev?.weight, reps: prev?.reps, seconds: prev?.seconds }
+    const planned = repRange?.match(/(\d+)\s*dk/)
+    return { type: 'normal', done: false, weight: prev?.weight, reps: prev?.reps, seconds: planned ? +planned[1] * 60 : prev?.seconds }
   })
   return { exerciseId, sets, restSec: restSec ?? profile.defaultRest, superset, target: repRange, advice: adv?.text, adviceTone: adv?.tone }
 }

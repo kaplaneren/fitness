@@ -5,8 +5,20 @@ export type Adherence = 'iyi' | 'orta' | 'kotu'
 export type Duration = 'kisa' | 'orta' | 'uzun'
 export type Goal = 'yag' | 'kas' | 'guc'
 
-export interface WizardInput { days: number; adherence: Adherence; duration: Duration; goal: Goal; restrictions: Flag[] }
-export interface PlannedDay { name: string; exercises: RoutineExercise[]; minutes: number }
+export type Machine = 'bike' | 'elliptical' | 'treadmill_incline' | 'rower' | 'stair'
+export type WarmupType = Machine | 'mobility'
+export const MACHINES: { v: Machine; l: string }[] = [
+  { v: 'bike', l: 'Bisiklet' }, { v: 'elliptical', l: 'Eliptik' }, { v: 'treadmill_incline', l: 'Eğimli yürüyüş' }, { v: 'rower', l: 'Kürek' }, { v: 'stair', l: 'Merdiven' }
+]
+export const DURATION_MIN: Record<Duration, number> = { kisa: 45, orta: 60, uzun: 90 }
+
+export interface WizardInput {
+  days: number; adherence: Adherence; duration: Duration; goal: Goal; restrictions: Flag[]
+  /** Antrenman başı ısınma ve kardiyo süreleri (dk), toplam süreden düşülür */
+  warmupMin: number; warmupType: WarmupType
+  cardioMin: number; cardioType: Machine
+}
+export interface PlannedDay { name: string; exercises: RoutineExercise[]; minutes: number; split: { warmup: number; weights: number; cardio: number } }
 export interface Plan { title: string; days: PlannedDay[]; schedule: string; notes: string[] }
 
 const SLOTS: Record<string, string[]> = {
@@ -96,12 +108,29 @@ export function buildPlan(inp: WizardInput): Plan {
     notes.push('6 gün için itiş/çekiş/bacak iki tur. Uyku ve beslenme yerindeyse uygundur; yorgunluk birikirse 5 güne in.')
   }
 
-  const count = { kisa: 5, orta: 7, uzun: 9 }[inp.duration]
+  const total = DURATION_MIN[inp.duration]
+  const warm = Math.max(0, inp.warmupMin), cardio = Math.max(0, inp.cardioMin)
+  // Ağırlık bölümüne kalan süre; en az 20 dk ayrılır
+  let budget = total - warm - cardio
+  if (budget < 20) { notes.push(`${total} dakikadan ${warm} dk ısınma ve ${cardio} dk kardiyo düşünce ağırlığa ${Math.max(0, budget)} dk kalıyor; en az 20 dk ağırlık olacak şekilde plan biraz uzadı.`); budget = 20 }
+  const maxCount = { kisa: 6, orta: 8, uzun: 10 }[inp.duration]
   const reps = {
     guc: { main: '4-6', second: '6-8', iso: '8-12', rest: [180, 120, 75] },
     kas: { main: '6-10', second: '8-12', iso: '10-15', rest: [150, 105, 60] },
     yag: { main: '8-12', second: '10-12', iso: '12-15', rest: [120, 90, 45] }
   }[inp.goal]
+  // Bir hareketin tahmini süresi: set başına ~45 sn iş + dinlenme (süpersette yarısı) + 1 dk hazırlık
+  const exMinutes = (e: RoutineExercise) => e.sets * (45 + (e.superset ? e.restSec / 2 : e.restSec)) / 60 + 1
+  const pairable = inp.duration !== 'uzun'
+
+  const warmupBlock = (k: string): RoutineExercise[] => {
+    if (!warm) return []
+    if (inp.warmupType !== 'mobility') return [{ exerciseId: inp.warmupType, sets: 1, reps: `${warm} dk`, restSec: 0 }]
+    const lower = ['LA', 'LB', 'LG'].includes(k)
+    const pool = lower ? ['cat_cow', 'glute_bridge', 'clamshell', 'hip_9090', 'tke', 'bird_dog'] : k.startsWith('F') ? ['cat_cow', 'band_pull_apart', 'glute_bridge', 'wall_angel', 'bird_dog', 'hip_9090'] : ['cat_cow', 'band_pull_apart', 'wall_angel', 'thoracic_rotation', 'dead_hang', 'bird_dog']
+    const n = Math.max(2, Math.min(pool.length, Math.round(warm / 1.5)))
+    return pool.slice(0, n).map((id) => ({ exerciseId: id, sets: 1, reps: id === 'dead_hang' ? '30 sn' : '10-12', restSec: 0 }))
+  }
 
   const ssTags = 'abcdefgh'
   const used = new Map<string, number>()
@@ -109,37 +138,52 @@ export function buildPlan(inp: WizardInput): Plan {
     const tpl = DAYS[k]
     const name = tpl.name + (used.has(k) ? ' (2)' : '')
     used.set(k, (used.get(k) ?? 0) + 1)
-    const chosen: { slot: string; id: string }[] = []
-    for (const slot of tpl.slots) {
-      if (chosen.length >= count) break
-      const id = pick(slot, inp.restrictions)
-      if (id && !chosen.some((c) => c.id === id)) chosen.push({ slot, id })
-    }
+    const ex: RoutineExercise[] = []
+    const slots: string[] = []
     let ssi = 0
-    const ex: RoutineExercise[] = chosen.map((c, i) => {
-      const iso = ISOLATION.has(c.slot)
-      const sets = i < 2 ? (inp.duration === 'uzun' ? 4 : 3) : inp.duration === 'kisa' ? 2 : 3
-      return {
-        exerciseId: c.id, sets,
-        reps: c.slot.startsWith('core') ? (c.id === 'side_plank' || c.id === 'plank' ? '30-45 sn' : '10/taraf') : i === 0 ? reps.main : iso ? reps.iso : reps.second,
+    let mins = 0
+    for (const slot of tpl.slots) {
+      if (ex.length >= maxCount) break
+      const id = pick(slot, inp.restrictions)
+      if (!id || ex.some((e) => e.exerciseId === id)) continue
+      const i = ex.length
+      const iso = ISOLATION.has(slot)
+      const e: RoutineExercise = {
+        exerciseId: id,
+        sets: i < 2 ? (inp.duration === 'uzun' ? 4 : 3) : inp.duration === 'kisa' ? 2 : 3,
+        reps: slot.startsWith('core') ? (id === 'side_plank' || id === 'plank' ? '30-45 sn' : '10/taraf') : i === 0 ? reps.main : iso ? reps.iso : reps.second,
         restSec: i === 0 ? reps.rest[0] : iso ? reps.rest[2] : reps.rest[1]
       }
-    })
-    // Kısa ve orta sürede izolasyon hareketlerini ikişerli süperset yap
-    if (inp.duration !== 'uzun') {
-      for (let i = 2; i < ex.length - 1; i++) {
-        if (ISOLATION.has(chosen[i].slot) && ISOLATION.has(chosen[i + 1].slot) && !ex[i].superset) {
-          const t = ssTags[ssi++]; ex[i].superset = t; ex[i + 1].superset = t; i++
+      // Kısa ve orta sürede ardışık izolasyon hareketlerini süperset yap
+      const prev = ex[i - 1]
+      if (pairable && iso && i >= 3 && prev && ISOLATION.has(slots[i - 1]) && !prev.superset) {
+        const t = ssTags[ssi++]
+        const before = exMinutes(prev)
+        prev.superset = t; e.superset = t
+        const delta = exMinutes(prev) - before + exMinutes(e)
+        if (mins + delta > budget) { prev.superset = undefined; ssi--; break }
+        mins += delta
+      } else {
+        if (mins + exMinutes(e) > budget) {
+          // Süre dolduysa set sayısını azaltarak bir hareket daha sığdırmayı dene
+          if (e.sets > 2) { e.sets = 2; if (mins + exMinutes(e) <= budget) { ex.push(e); slots.push(slot); mins += exMinutes(e) } }
+          break
         }
+        mins += exMinutes(e)
       }
+      ex.push(e); slots.push(slot)
     }
-    if (inp.goal === 'yag' && inp.duration !== 'kisa') {
-      const c = pick('cardio', inp.restrictions)
-      if (c) ex.push({ exerciseId: c, sets: 1, reps: '15-20 dk', restSec: 0 })
-    }
-    const minutes = Math.round(ex.reduce((t, e) => t + e.sets * (45 + (e.superset ? e.restSec / 2 : e.restSec)) / 60 + (e.reps.includes('dk') ? 17 : 0), 8))
-    return { name, exercises: ex, minutes }
+    // Tek kalan süperset etiketini temizle
+    for (const e of ex) if (e.superset && ex.filter((x) => x.superset === e.superset).length < 2) e.superset = undefined
+    const cardioBlock: RoutineExercise[] = cardio ? [{ exerciseId: inp.cardioType, sets: 1, reps: `${cardio} dk`, restSec: 0 }] : []
+    const weights = Math.round(mins)
+    return { name, exercises: [...warmupBlock(k), ...ex, ...cardioBlock], minutes: warm + weights + cardio, split: { warmup: warm, weights, cardio } }
   })
+
+  notes.push(`Süre planı: ${total} dk antrenmanın ${warm ? `${warm} dk ısınmaya, ` : ''}${cardio ? `${cardio} dk kardiyoya, ` : ''}kalan ~${Math.max(20, total - warm - cardio)} dk ağırlığa ayrıldı. Ağırlık hareketleri bu süreye sığacak kadar seçildi.`)
+  const flagged = [inp.warmupType, inp.cardioType].filter((id, i) => (i === 0 ? warm : cardio) && id !== 'mobility').filter((id) => BUILTIN_EXERCISES.find((e) => e.id === id)?.flags.some((f) => inp.restrictions.includes(f)))
+  if (flagged.length) notes.push(`Seçtiğin ${[...new Set(flagged)].map((id) => MACHINES.find((m) => m.v === id)?.l.toLowerCase()).join(' ve ')} sağlık kısıtlarından birine takılıyor; ağrı olursa bisiklet veya eliptiğe geç.`)
+  if (inp.goal === 'yag' && !cardio) notes.push('Yağ yakımı hedefinde antrenman sonuna 15-20 dk kardiyo eklemek yağ kaybını hızlandırır.')
 
   if (inp.restrictions.length) notes.push(`Sağlık kısıtlarına (${inp.restrictions.map((f) => FLAG_INFO[f].short).join(', ')}) takılan hareketler yerine güvenli alternatifler seçildi.`)
   if (inp.goal === 'yag') notes.push('Yağ yakımında kas kaybını önlemek için ağırlıkları düşürme; tekrar aralığını koru, kalori açığını beslenmeden yarat.')

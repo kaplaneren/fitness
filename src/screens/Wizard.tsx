@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { db } from '../db'
 import { useExercises, useProfile } from '../hooks'
-import { buildPlan, type Adherence, type Duration, type Goal, type Plan } from '../lib/program'
+import { DURATION_MIN, MACHINES, buildPlan, type Adherence, type Duration, type Goal, type Machine, type Plan, type WarmupType } from '../lib/program'
 import { notify } from '../components/Dialog'
 
 function Seg<T extends string | number>({ value, options, onChange }: { value: T; options: { v: T; l: string }[]; onChange: (v: T) => void }) {
@@ -16,8 +16,14 @@ export default function Wizard({ onClose }: { onClose: () => void }) {
   const [duration, setDuration] = useState<Duration>('orta')
   const [goal, setGoal] = useState<Goal>('yag')
   const [plan, setPlan] = useState<Plan | null>(null)
+  const [warmupMin, setWarmupMin] = useState(5)
+  const [warmupType, setWarmupType] = useState<WarmupType>('bike')
+  const [cardioMin, setCardioMin] = useState(0)
+  const [cardioType, setCardioType] = useState<Machine>('treadmill_incline')
+  const total = DURATION_MIN[duration]
+  const left = total - warmupMin - cardioMin
 
-  const make = () => setPlan(buildPlan({ days, adherence, duration, goal, restrictions: profile.restrictions }))
+  const make = () => setPlan(buildPlan({ days, adherence, duration, goal, restrictions: profile.restrictions, warmupMin, warmupType, cardioMin, cardioType }))
   const save = async () => {
     if (!plan) return
     const folder = `Program · ${new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}`
@@ -53,6 +59,38 @@ export default function Wizard({ onClose }: { onClose: () => void }) {
               <h3>Hedefin</h3>
               <Seg value={goal} onChange={setGoal} options={[{ v: 'yag', l: 'Yağ yakımı' }, { v: 'kas', l: 'Kas' }, { v: 'guc', l: 'Güç' }]} />
             </div>
+            <div className="card">
+              <h3>Isınma</h3>
+              <Seg value={warmupMin} onChange={setWarmupMin} options={[0, 5, 10, 15].map((v) => ({ v, l: v ? `${v} dk` : 'Yok' }))} />
+              {warmupMin > 0 && (
+                <div className="chips wrap">
+                  {[...MACHINES, { v: 'mobility' as const, l: 'Mobilite hareketleri' }].map((m) => (
+                    <button key={m.v} className={`chip ${warmupType === m.v ? 'on' : ''}`} onClick={() => setWarmupType(m.v)}>{m.l}</button>
+                  ))}
+                </div>
+              )}
+              <p className="muted tiny">Antrenmanın başına eklenir.</p>
+            </div>
+            <div className="card">
+              <h3>Kardiyo</h3>
+              <Seg value={cardioMin} onChange={setCardioMin} options={[0, 10, 15, 20, 30].map((v) => ({ v, l: v ? `${v} dk` : 'Yok' }))} />
+              {cardioMin > 0 && (
+                <div className="chips wrap">
+                  {MACHINES.map((m) => <button key={m.v} className={`chip ${cardioType === m.v ? 'on' : ''}`} onClick={() => setCardioType(m.v)}>{m.l}</button>)}
+                </div>
+              )}
+              <p className="muted tiny">Antrenmanın sonuna eklenir.</p>
+            </div>
+            <div className="card">
+              <div className="row-between small"><b>Süre dağılımı</b><span className="mono">{total} dk</span></div>
+              <div className="bar-track" style={{ display: 'flex', height: 12 }}>
+                <div style={{ width: `${(warmupMin / total) * 100}%`, background: 'var(--plate-yellow)' }} />
+                <div style={{ width: `${(Math.max(0, left) / total) * 100}%`, background: 'var(--accent)' }} />
+                <div style={{ width: `${(cardioMin / total) * 100}%`, background: 'var(--plate-red)' }} />
+              </div>
+              <p className="small">{warmupMin ? `Isınma ${warmupMin} dk · ` : ''}<b>Ağırlık {Math.max(0, left)} dk</b>{cardioMin ? ` · Kardiyo ${cardioMin} dk` : ''}</p>
+              {left < 20 && <p className="small warn">Ağırlığa 20 dakikadan az kalıyor; süreyi uzat veya kardiyoyu kısalt.</p>}
+            </div>
             <p className="muted small">Profilindeki sağlık kısıtları ({profile.restrictions.length} adet) programa uygulanır.</p>
             <button className="btn primary block" onClick={make}>Programı hazırla</button>
           </>
@@ -67,6 +105,7 @@ export default function Wizard({ onClose }: { onClose: () => void }) {
             {plan.days.map((d, i) => (
               <div key={i} className="card">
                 <div className="card-title"><h3>{i + 1}. {d.name}</h3><span className="pill">≈ {d.minutes} dk</span></div>
+                <p className="muted tiny">{d.split.warmup ? `Isınma ${d.split.warmup} dk · ` : ''}Ağırlık ≈ {d.split.weights} dk{d.split.cardio ? ` · Kardiyo ${d.split.cardio} dk` : ''}</p>
                 <table className="sets read">
                   <tbody>
                     {d.exercises.map((e, j) => (
