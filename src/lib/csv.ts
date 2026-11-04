@@ -185,10 +185,22 @@ export async function importStrong(text: string, custom: Exercise[]) {
 export function cleanRestRows(w: Workout, exMap: Map<string, Exercise>) {
   let removed = 0
   for (const e of w.exercises) {
-    if (exMap.get(e.exerciseId)?.kind === 'time') continue
     const isRest = (s: SetEntry) => s.seconds != null && s.seconds > 0 && !s.weight && !s.reps
     const rest = e.sets.filter(isRest)
-    if (!rest.length || rest.length === e.sets.length) continue
+    if (rest.length && rest.length === e.sets.length) {
+      // Süreli hareket (ısınma, kardiyo, plank): ilk setten sonra gelen, en uzun setin yarısından kısa ve
+      // 5 dakikayı geçmeyen satırlar Strong'un dinlenme sayacıdır (ör. 20 dk yürüyüş + 2 dk).
+      if (e.sets.length < 2) continue
+      const max = Math.max(...e.sets.map((s) => s.seconds!))
+      const drop = e.sets.filter((s, i) => i > 0 && s.seconds! <= 300 && s.seconds! * 2 <= max)
+      if (!drop.length) continue
+      e.restSec = Math.round(drop[0].seconds!)
+      e.sets = e.sets.filter((s) => !drop.includes(s))
+      removed += drop.length
+      continue
+    }
+    if (exMap.get(e.exerciseId)?.kind === 'time') continue
+    if (!rest.length) continue
     const secs = rest.map((s) => s.seconds!).sort((a, b) => a - b)
     e.restSec = Math.round(secs[Math.floor(secs.length / 2)])
     e.sets = e.sets.filter((s) => !isRest(s))
@@ -199,7 +211,7 @@ export function cleanRestRows(w: Workout, exMap: Map<string, Exercise>) {
 
 /** Daha önce içe aktarılmış antrenmanlardaki dinlenme satırlarını bir kez temizler. */
 export async function migrateRestRows() {
-  if ((await db.kv.get('migr:restRows'))?.value) return 0
+  if ((await db.kv.get('migr:restRows2'))?.value) return 0
   const exMap = new Map([...BUILTIN_EXERCISES, ...(await db.customExercises.toArray())].map((e) => [e.id, e]))
   let total = 0
   await db.transaction('rw', db.workouts, async () => {
@@ -208,6 +220,6 @@ export async function migrateRestRows() {
       if (n) { total += n; await db.workouts.put(w) }
     }
   })
-  await db.kv.put({ key: 'migr:restRows', value: Date.now() })
+  await db.kv.put({ key: 'migr:restRows2', value: Date.now() })
   return total
 }
