@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { db, type Routine } from '../db'
 import { useActiveWorkout, useExercises } from '../hooks'
-import { startWorkout } from '../lib/workout'
+import { MOBILITY_ROUTINES, startWorkout } from '../lib/workout'
 import RoutineEditor from './RoutineEditor'
 import Wizard from './Wizard'
 import ExerciseLibrary from './Exercises'
@@ -60,6 +60,14 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
           <h3>Henüz rutinin yok</h3>
           <p className="muted small">Kaç gün gidebildiğini, ne kadar düzenli olduğunu ve ne kadar vaktin olduğunu söyle, sağlık kısıtlarına uygun bir program hazırlayayım.</p>
           <button className="btn primary" onClick={() => setWizard(true)}>Program oluştur</button>
+        </div>
+      )}
+
+      {!folders.has('Isınma ve mobilite') && (
+        <div className="card">
+          <h3>Isınma ve mobilite rutinleri</h3>
+          <p className="muted small">Üst ve alt vücut ısınması ile skolyoz ve bel bakımı rutini (McGill curl-up, side plank, bird dog, asılma). Bel ve dize yük bindirmez.</p>
+          <button className="btn sm" onClick={() => db.routines.bulkAdd(MOBILITY_ROUTINES.map((r) => ({ ...r, updatedAt: Date.now() })))}>Rutinleri ekle</button>
         </div>
       )}
 

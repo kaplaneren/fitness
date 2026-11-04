@@ -8,6 +8,8 @@ import { adaptiveTdee, balance, consistency, goalEta, mondayOf, nutritionStats, 
 import { targets } from '../lib/nutrition'
 import LineChart, { CalendarHeat } from '../components/LineChart'
 import { ExerciseDetail } from './Exercises'
+import { DeloadCard } from './Health'
+import { workoutBurn } from '../lib/health'
 
 function Delta({ cur, prev, unit = '', digits = 0, invert = false }: { cur: number; prev: number; unit?: string; digits?: number; invert?: boolean }) {
   if (!prev) return <span className="muted tiny">geçen hafta yok</span>
@@ -32,6 +34,8 @@ export function WeeklyReport() {
   const bal = balance(workouts, map)
   const tdee = adaptiveTdee(diary, ms)
   const t = targets(profile)
+  const burnOf = (s0: number) => workouts.filter((w) => w.startedAt >= s0 && w.startedAt < s0 + 7 * DAY).reduce((a, w) => a + workoutBurn(w, map, profile).kcal, 0)
+  const burnA = burnOf(weekStart), burnB = burnOf(weekStart - 7 * DAY)
   const range = `${new Date(weekStart).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} – ${new Date(weekStart + 6 * DAY).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}`
 
   return (
@@ -48,6 +52,7 @@ export function WeeklyReport() {
         <div className="stat"><b>{r.a.sets}</b><span>set</span><Delta cur={r.a.sets} prev={r.b.sets} /></div>
         <div className="stat"><b>{fmtKg(r.a.vol / 1000)}</b><span>ton hacim</span><Delta cur={r.a.vol / 1000} prev={r.b.vol / 1000} digits={1} unit=" t" /></div>
         <div className="stat"><b>{Math.round(r.a.mins)}</b><span>dk / antrenman</span><Delta cur={r.a.mins} prev={r.b.mins} unit=" dk" invert /></div>
+        <div className="stat"><b>{burnA}</b><span>kcal yakıldı</span><Delta cur={burnA} prev={burnB} unit=" kcal" /></div>
       </div>
       <div className="stat-row">
         <div className="stat"><b>{r.avgKcal != null ? Math.round(r.avgKcal) : '–'}</b><span>ort. kcal (hedef {t.kcal})</span></div>
@@ -90,6 +95,8 @@ export function WeeklyReport() {
           ))}
         </div>
       )}
+
+      <DeloadCard />
 
       <div className="card">
         <h3>Denge (son 4 hafta)</h3>

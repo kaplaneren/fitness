@@ -12,6 +12,8 @@ export interface SetEntry {
   rpe?: number
   /** Tükenişe kalan tekrar (Reps In Reserve) */
   rir?: number
+  /** Tek taraflı kayıt: sol / sağ */
+  side?: 'L' | 'R'
 }
 
 export interface WorkoutExercise {
@@ -88,6 +90,15 @@ export interface Profile {
   waterTarget: number
   targetWeight?: number
   weeklyTarget: number
+  carbCycling: boolean
+  supplements: string[]
+  /** Saatte yakılan aktif kalori: ağırlık antrenmanı / kardiyo */
+  kcalWeights: number
+  kcalCardio: number
+  /** Antrenmanla yakılanı günlük kalori hedefine ekle */
+  eatBack: boolean
+  /** Günlük ortalama adım */
+  steps: number
 }
 
 export const DEFAULT_PROFILE: Profile = {
@@ -105,8 +116,30 @@ export const DEFAULT_PROFILE: Profile = {
   goal: 'cut',
   waterTarget: 10,
   targetWeight: 76,
-  weeklyTarget: 4
+  weeklyTarget: 4,
+  carbCycling: false,
+  supplements: ['Kreatin 5 g', 'D vitamini', 'Omega-3'],
+  kcalWeights: 380,
+  kcalCardio: 500,
+  eatBack: false,
+  steps: 7500
 }
+
+export interface Checkin {
+  date: string
+  sleepHours?: number
+  sleepQuality?: number
+  energy?: number
+  soreness?: number
+  stress?: number
+  painKnee?: number
+  painBack?: number
+  painWrist?: number
+  steps?: number
+  note?: string
+}
+
+export interface MealTemplate { id: string; name: string; items: Omit<DiaryEntry, 'id' | 'date' | 'meal' | 'createdAt'>[] }
 
 export interface Food {
   id: string
@@ -160,6 +193,7 @@ class AppDB extends Dexie {
   foods!: Table<Food, string>
   diary!: Table<DiaryEntry, number>
   photos!: Table<Photo, number>
+  checkins!: Table<Checkin, string>
 
   constructor() {
     super('form-app')
@@ -175,6 +209,7 @@ class AppDB extends Dexie {
       diary: '++id, date, foodId, createdAt',
       photos: '++id, date'
     })
+    this.version(3).stores({ checkins: 'date' })
   }
 }
 
@@ -195,7 +230,7 @@ export function allExercises(custom: Exercise[] = []): Exercise[] {
   return [...BUILTIN_EXERCISES, ...custom].sort((a, b) => a.name.localeCompare(b.name, 'tr'))
 }
 
-const BACKUP_TABLES = ['customExercises', 'routines', 'workouts', 'measurements', 'kv', 'foods', 'diary'] as const
+const BACKUP_TABLES = ['customExercises', 'routines', 'workouts', 'measurements', 'kv', 'foods', 'diary', 'checkins'] as const
 
 export async function exportBackup() {
   const data: Record<string, unknown[]> = {}

@@ -2,6 +2,19 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.4.0', date: '4 Kasım 2026', items: [
+    'Yakılan kalori: ağırlık 380, kardiyo 500 kcal/saat ve 7500 adım varsayılanı (Profil\'den değişir); antrenman sonunda, beslenmede ve haftalık raporda gösterilir',
+    'Günlük harcama artık bazal + günlük yaşam + adım + antrenman olarak hesaplanıyor; istersen hedef her gün gerçek antrenmana göre ayarlanır',
+    'Günlük kontrol ve hazır olma skoru; skor düşükse o gün ağırlık artışı önerilmez',
+    'Ağrı günlüğü (diz, bel, bilek) ve hangi hareketten sonra ağrının arttığı analizi',
+    'Sağ ve sol ayrı set kaydı, taraf farkı analizi',
+    'Deload haftası önerisi ve deload modu',
+    'Isınma, mobilite ve skolyoz/bel bakımı rutinleri',
+    'Nabız bölgeleri ve bölgelere göre kardiyo dakikası',
+    'Tarif oluşturucu, öğün şablonları, takviye takibi, karbonhidrat döngüsü',
+    'CSV dışa aktarma, Strong\'dan içe aktarma, Kısayollar ile Apple Sağlık verisi',
+    'Fotoğraf özelliği kaldırıldı'
+  ] },
   { v: '0.3.0', date: '4 Kasım 2026', items: [
     'Haftalık rapor: geçen haftayla kıyas, koç notları, haftanın rekorları',
     'strengthlevel.com standartlarıyla bölge bazlı güç haritası, toplam güç ve vücudun kendi içinde dengesi',
@@ -17,7 +30,7 @@ export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
     'Beslenme takibi: günlük öğünler, makro hedefleri, su, barkod ve Open Food Facts araması',
     'Program sihirbazı: gün sayısı, devamlılık, süre ve hedefe göre program',
     'İlerleme: güç skoru, kas ısı haritası, haftalık set hacmi, 1RM grafikleri ve projeksiyon',
-    'Vücut ölçüleri, FFMI ve ilerleme fotoğrafları',
+    'Vücut ölçüleri ve FFMI',
     'Setlere RIR girişi, dinamik dinlenme süresi, antrenman analizi',
     'Yeni tasarım, açık/koyu tema, anatomik kas haritası',
     'Bitir ve silme onayları artık uygulama içinde açılıyor'

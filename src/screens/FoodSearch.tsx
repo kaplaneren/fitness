@@ -1,11 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { db, type Food, type Meal } from '../db'
+import { db, getKV, setKV, type Food, type Meal, type MealTemplate } from '../db'
 import { BASE_FOODS, FOOD_CATEGORIES } from '../data/foods'
 import { MEALS, fetchOffProduct, normalizeTr, portion, searchOff } from '../lib/nutrition'
-import { notify } from '../components/Dialog'
+import { ask, notify } from '../components/Dialog'
 
-type Tab = 'ara' | 'son' | 'barkod' | 'yeni'
+type Tab = 'ara' | 'son' | 'barkod' | 'yeni' | 'tarif' | 'sablon'
 
 export function useAllFoods() {
   const extra = useLiveQuery(() => db.foods.toArray(), []) ?? []
@@ -51,9 +51,9 @@ export default function FoodSearch({ day, meal, onClose }: { day: string; meal: 
         <span />
       </div>
       <div className="sheet-body">
-        <div className="seg">
-          {([['ara', 'Ara'], ['son', 'Son'], ['barkod', 'Barkod'], ['yeni', 'Yeni']] as const).map(([v, l]) => (
-            <button key={v} className={tab === v ? 'on' : ''} onClick={() => setTab(v)}>{l}</button>
+        <div className="chips">
+          {([['ara', 'Ara'], ['son', 'Son'], ['sablon', 'Şablonlar'], ['barkod', 'Barkod'], ['tarif', 'Tarif'], ['yeni', 'Yeni ürün']] as const).map(([v, l]) => (
+            <button key={v} className={`chip ${tab === v ? 'on' : ''}`} onClick={() => setTab(v)}>{l}</button>
           ))}
         </div>
 
@@ -76,6 +76,8 @@ export default function FoodSearch({ day, meal, onClose }: { day: string; meal: 
         {tab === 'son' && (recent.length ? <FoodList foods={recent.map((id) => map.get(id)).filter(Boolean) as Food[]} onPick={setPicked} /> : <p className="muted">Eklediğin yiyecekler burada çıkar.</p>)}
         {tab === 'barkod' && <Barcode onFound={setPicked} />}
         {tab === 'yeni' && <NewFood onSaved={setPicked} />}
+        {tab === 'tarif' && <Recipe foods={list} onSaved={setPicked} />}
+        {tab === 'sablon' && <Templates day={day} meal={meal} onAdded={onClose} />}
       </div>
       {picked && <AmountSheet food={picked} day={day} meal={meal} onClose={() => setPicked(null)} onAdded={onClose} />}
     </div>
@@ -226,5 +228,87 @@ function NewFood({ onSaved }: { onSaved: (f: Food) => void }) {
       <div className="fields">{inp('serving', 'Porsiyon (g)')}{inp('barcode', 'Barkod', 'numeric')}</div>
       <button className="btn primary" onClick={save}>Kaydet ve ekle</button>
     </div>
+  )
+}
+
+
+function Recipe({ foods, onSaved }: { foods: Food[]; onSaved: (f: Food) => void }) {
+  const [name, setName] = useState('')
+  const [items, setItems] = useState<{ food: Food; g: number }[]>([])
+  const [q, setQ] = useState('')
+  const [cooked, setCooked] = useState('')
+  const [portions, setPortions] = useState('4')
+  const nq = normalizeTr(q.trim())
+  const hits = nq.length > 1 ? foods.filter((f) => nq.split(/\s+/).every((w) => normalizeTr(`${f.name} ${f.brand ?? ''}`).includes(w))).slice(0, 8) : []
+  const raw = items.reduce((a, i) => a + i.g, 0)
+  const total = items.reduce((t, i) => { const v = portion(i.food, i.g); return { kcal: t.kcal + v.kcal, p: t.p + v.p, c: t.c + v.c, f: t.f + v.f } }, { kcal: 0, p: 0, c: 0, f: 0 })
+  const weight = parseFloat(cooked.replace(',', '.')) || raw
+  const n = Math.max(1, parseInt(portions) || 1)
+  const per100 = (x: number) => Math.round((x / Math.max(1, weight)) * 1000) / 10
+  const save = async () => {
+    if (!name.trim() || !items.length) { notify('Tarif adı ve en az bir malzeme gir.'); return }
+    const food: Food = {
+      id: 'r_' + Date.now(), name: name.trim(), source: 'recipe', cat: 'Tariflerim',
+      kcal: Math.round((total.kcal / weight) * 100), p: per100(total.p), c: per100(total.c), f: per100(total.f),
+      servings: [{ label: '1 porsiyon', g: Math.round(weight / n) }, { label: 'Tamamı', g: Math.round(weight) }],
+      ingredients: items.map((i) => ({ foodId: i.food.id, g: i.g }))
+    }
+    await db.foods.put(food)
+    onSaved(food)
+  }
+  return (
+    <div className="card">
+      <p className="muted small">Malzemeleri çiğ gramajlarıyla ekle. Pişmiş toplam ağırlığı girersen 100 g değerleri ona göre hesaplanır.</p>
+      <label className="field" htmlFor="rc-name">Tarif adı<input id="rc-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="ör. Tavuklu bulgur pilavı" /></label>
+      {items.map((it, i) => (
+        <div key={i} className="row-between small" style={{ gap: 8 }}>
+          <span className="grow ellipsis">{it.food.name}</span>
+          <input className="num" style={{ width: 70 }} inputMode="decimal" value={it.g} onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, g: parseFloat(e.target.value) || 0 } : x)))} aria-label="gram" />
+          <span className="muted tiny">g</span>
+          <button className="link muted" onClick={() => setItems(items.filter((_, j) => j !== i))} aria-label="Kaldır">✕</button>
+        </div>
+      ))}
+      <input className="input" placeholder="Malzeme ara ve ekle" value={q} onChange={(e) => setQ(e.target.value)} />
+      {hits.length > 0 && (
+        <ul className="list">
+          {hits.map((f) => <li key={f.id} onClick={() => { setItems([...items, { food: f, g: f.servings?.[0]?.g ?? 100 }]); setQ('') }}><span className="title grow">{f.name}</span><span className="muted tiny">+ ekle</span></li>)}
+        </ul>
+      )}
+      <div className="fields">
+        <label className="field" htmlFor="rc-cooked">Pişmiş ağırlık (g)<input id="rc-cooked" inputMode="decimal" placeholder={String(Math.round(raw))} value={cooked} onChange={(e) => setCooked(e.target.value)} /></label>
+        <label className="field" htmlFor="rc-por">Porsiyon sayısı<input id="rc-por" inputMode="numeric" value={portions} onChange={(e) => setPortions(e.target.value)} /></label>
+      </div>
+      {items.length > 0 && <p className="small">Toplam {Math.round(total.kcal)} kcal · P {Math.round(total.p)} g · porsiyon başı <b>{Math.round(total.kcal / n)} kcal</b>, {Math.round(total.p / n)} g protein.</p>}
+      <button className="btn primary" onClick={save}>Tarifi kaydet ve ekle</button>
+    </div>
+  )
+}
+
+function Templates({ day, meal, onAdded }: { day: string; meal: Meal; onAdded: () => void }) {
+  const list = useLiveQuery(() => getKV<MealTemplate[]>('mealTemplates', []), []) ?? []
+  const add = async (t: MealTemplate) => {
+    await db.diary.bulkAdd(t.items.map((i) => ({ ...i, date: day, meal, createdAt: Date.now() })))
+    onAdded()
+  }
+  if (!list.length) return <p className="muted small">Henüz şablonun yok. Beslenme ekranında bir öğünü doldurduktan sonra "Şablon olarak kaydet" de; sık yediğin kahvaltıyı tek dokunuşla eklersin.</p>
+  return (
+    <ul className="list">
+      {list.map((t) => {
+        const kcal = t.items.reduce((a, i) => a + i.kcal, 0), p = t.items.reduce((a, i) => a + i.p, 0)
+        return (
+          <li key={t.id} onClick={() => add(t)}>
+            <div className="stack grow" style={{ gap: 2 }}>
+              <span className="title">{t.name}</span>
+              <span className="muted tiny ellipsis">{t.items.map((i) => i.name).join(', ')}</span>
+            </div>
+            <b className="mono small">{Math.round(kcal)}<span className="muted tiny"> kcal · P {Math.round(p)}</span></b>
+            <button className="link muted" aria-label="Şablonu sil" onClick={async (e) => {
+              e.stopPropagation()
+              if (await ask(`"${t.name}" şablonu silinsin mi?`, { danger: true, ok: 'Sil' })) await setKV('mealTemplates', list.filter((x) => x.id !== t.id))
+            }}>✕</button>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

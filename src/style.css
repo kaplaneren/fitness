@@ -178,6 +178,7 @@ textarea.input { min-height: 72px; resize: vertical; }
 .sets.read td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
 .set-type { width: 30px; height: 34px; border-radius: 8px; background: var(--surface-2); font-weight: 800; font-size: 14px; }
 .t-warmup .set-type { color: var(--plate-yellow); } .t-drop .set-type { color: var(--accent); } .t-failure .set-type { color: var(--plate-red); }
+.set-type .side-tag { display: block; font-size: 9px; line-height: 1; font-weight: 700; color: var(--ink-2); }
 .num { width: 100%; max-width: 72px; height: 38px; text-align: center; border-radius: 9px; border: 1px solid transparent; background: var(--surface-2); font-size: 17px; font-weight: 800; color: var(--ink); }
 .num:focus { border-color: var(--accent); outline: none; }
 .num::placeholder { color: var(--ink-2); font-weight: 500; }
@@ -228,8 +229,6 @@ textarea.input { min-height: 72px; resize: vertical; }
 .glass.full { background: var(--accent); }
 .date-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .date-nav strong { font-family: var(--f-display); font-size: 20px; text-transform: uppercase; }
-.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.photo-grid img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; max-width: 100%; }
 
 .footer { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px 0 4px; font-size: 12px; color: var(--ink-2); font-weight: 600; }
 .score-big { font-family: var(--f-display); font-size: 56px; font-weight: 700; line-height: .9; }

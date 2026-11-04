@@ -9,6 +9,7 @@ import { dynamicRest, workingWeight } from '../lib/analysis'
 import ExercisePicker from '../components/ExercisePicker'
 import FlagBadges from '../components/FlagBadges'
 import { PLATE_COLORS } from '../lib/plates'
+import { workoutBurn } from '../lib/health'
 
 interface Rest { endAt: number; total: number }
 
@@ -113,7 +114,7 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
     <div className="sheet workout">
       <div className="sheet-head workout-head">
         <button className="btn ghost" onClick={onMinimize} aria-label="Küçült">Küçült</button>
-        <span className="timer">{fmtDuration(now - w.startedAt)}</span>
+        <span className="stack center" style={{ gap: 0 }}><span className="timer">{fmtDuration(now - w.startedAt)}</span><span className="muted tiny">{workoutBurn(w, map, profile, now).kcal} kcal</span></span>
         <button className="btn primary sm" onClick={finish}>Bitir</button>
       </div>
 
@@ -178,6 +179,13 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
                   {kind === 'weight' && info?.equipment === 'barbell' && (
                     <button onClick={() => { setPlateFor(ex.sets.find((s) => !s.done)?.weight ?? ex.sets[0]?.weight ?? profile.barWeight); setMenu(null) }}>Plaka hesapla</button>
                   )}
+                  <button onClick={() => {
+                    const sided = ex.sets.some((x) => x.side)
+                    updEx(i, (e) => ({ ...e, sets: sided
+                      ? e.sets.filter((x) => x.side !== 'R').map(({ side: _s, ...x }) => x)
+                      : e.sets.flatMap((x) => (x.type === 'warmup' ? [x] : [{ ...x, side: 'L' as const }, { ...x, side: 'R' as const, done: false }])) }))
+                    setMenu(null)
+                  }}>{ex.sets.some((x) => x.side) ? 'Sağ/sol ayrımını kaldır' : 'Sağ ve sol ayrı kaydet'}</button>
                   <label className="inline">Dinlenme
                     <input type="number" inputMode="numeric" value={ex.restSec} onChange={(e) => updEx(i, (x) => ({ ...x, restSec: +e.target.value || 0 }))} /> sn
                   </label>
@@ -197,13 +205,13 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
                 </thead>
                 <tbody>
                   {ex.sets.map((s, si) => {
-                    const label = s.type === 'normal' ? String(++workIdx) : TYPE_LABEL[s.type]
+                    const label = s.type === 'normal' ? String(s.side === 'R' ? workIdx : ++workIdx) : TYPE_LABEL[s.type]
                     const ps = s.type === 'warmup' ? undefined : pWork[workIdx - 1]
                     const isPr = s.done && s.type !== 'warmup' && kind === 'weight' && e1rm(s.weight, s.reps) > (best[ex.exerciseId] ?? 0) && (best[ex.exerciseId] ?? 0) > 0
                     return (
                       <tr key={si} className={`${s.done ? 'done' : ''} t-${s.type}`}>
                         <td>
-                          <button className="set-type" onClick={() => updSet(i, si, { type: TYPE_ORDER[(TYPE_ORDER.indexOf(s.type) + 1) % 4] })}>{label}</button>
+                          <button className="set-type" onClick={() => updSet(i, si, { type: TYPE_ORDER[(TYPE_ORDER.indexOf(s.type) + 1) % 4] })}>{label}{s.side && <small className="side-tag">{s.side === 'L' ? 'sol' : 'sağ'}</small>}</button>
                         </td>
                         <td className="prev">{ps ? (kind === 'time' ? `${Math.round((ps.seconds ?? 0) / 60)} dk` : `${ps.weight ? fmtKg(ps.weight) + '×' : ''}${ps.reps ?? ''}`) : '—'}</td>
                         {kind === 'time' ? (
@@ -232,7 +240,8 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
               <div className="row-between">
                 <button className="link" onClick={() => updEx(i, (e) => {
                   const last = e.sets[e.sets.length - 1]
-                  return { ...e, sets: [...e.sets, { type: 'normal', done: false, weight: last?.weight, reps: last?.reps, seconds: last?.seconds }] }
+                  const base = { type: 'normal' as const, done: false, weight: last?.weight, reps: last?.reps, seconds: last?.seconds }
+                  return { ...e, sets: [...e.sets, ...(last?.side ? [{ ...base, side: 'L' as const }, { ...base, side: 'R' as const }] : [base])] }
                 })}>+ Set ekle</button>
                 {ex.sets.length > 1 && <button className="link muted" onClick={() => updEx(i, (e) => ({ ...e, sets: e.sets.slice(0, -1) }))}>Son seti sil</button>}
               </div>

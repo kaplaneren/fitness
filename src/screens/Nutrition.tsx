@@ -1,12 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
-import { db, getKV, setKV, type DiaryEntry, type Meal } from '../db'
-import { useProfile } from '../hooks'
-import { MEALS, shiftDay, sumEntries, targets, todayKey } from '../lib/nutrition'
+import { db, getKV, setKV, type DiaryEntry, type Meal, type MealTemplate } from '../db'
+import { useDayEnergy } from '../hooks'
+import { MEALS, shiftDay, sumEntries, todayKey } from '../lib/nutrition'
 import FoodSearch from './FoodSearch'
 import VersionFooter from '../components/VersionFooter'
 import { Bars } from '../components/LineChart'
-import { ask } from '../components/Dialog'
+import { ask, notify } from '../components/Dialog'
 
 export function MacroRing({ eaten, target }: { eaten: number; target: number }) {
   const r = 52, c = 2 * Math.PI * r
@@ -48,8 +48,7 @@ export default function NutritionScreen() {
   const [day, setDay] = useState(todayKey())
   const [adding, setAdding] = useState<Meal | null>(null)
   const [editEntry, setEditEntry] = useState<DiaryEntry | null>(null)
-  const profile = useProfile()
-  const t = targets(profile)
+  const { profile, t, burn, steps, training, healthKcal } = useDayEnergy(day)
   const entries = useLiveQuery(() => db.diary.where('date').equals(day).sortBy('createdAt'), [day]) ?? []
   const water = useLiveQuery(() => getKV<number>('water:' + day, 0), [day]) ?? 0
   const week = useLiveQuery(async () => {
@@ -67,6 +66,12 @@ export default function NutritionScreen() {
     const prev = await db.diary.where('date').equals(shiftDay(day, -1)).filter((e) => e.meal === meal).toArray()
     await db.diary.bulkAdd(prev.map(({ id: _id, ...e }) => ({ ...e, date: day, createdAt: Date.now() })))
   }
+  const saveTemplate = async (mealName: string, list: DiaryEntry[]) => {
+    const t: MealTemplate = { id: 't_' + Date.now(), name: `${mealName}: ${list.slice(0, 2).map((e) => e.name.split(' (')[0]).join(', ')}${list.length > 2 ? ` +${list.length - 2}` : ''}`, items: list.map(({ id: _i, date: _d, meal: _m, createdAt: _c, ...rest }) => rest) }
+    await setKV('mealTemplates', [...await getKV<MealTemplate[]>('mealTemplates', []), t])
+    notify(`"${t.name}" şablonu kaydedildi. Yiyecek eklerken Şablonlar sekmesinde bulursun.`)
+  }
+  const supps = useLiveQuery(() => getKV<string[]>('supps:' + day, []), [day]) ?? []
   const byMeal = useMemo(() => Object.fromEntries(MEALS.map((m) => [m.id, entries.filter((e) => e.meal === m.id)])), [entries])
 
   return (
@@ -89,6 +94,8 @@ export default function NutritionScreen() {
         </div>
       </div>
 
+      <EnergyCard t={t} burn={burn} steps={steps} training={training} healthKcal={healthKcal} eaten={total.kcal} eatBack={profile.eatBack} stepsDefault={profile.steps} />
+
       {MEALS.map((m) => {
         const list = byMeal[m.id] ?? []
         const s = sumEntries(list)
@@ -110,6 +117,7 @@ export default function NutritionScreen() {
             <div className="row">
               <button className="btn sm primary" onClick={() => setAdding(m.id)}>+ Ekle</button>
               {list.length === 0 && <button className="btn sm" onClick={() => copyYesterday(m.id)}>Dünküyü kopyala</button>}
+              {list.length > 0 && <button className="btn sm ghost" onClick={() => saveTemplate(m.name, list)}>Şablon olarak kaydet</button>}
             </div>
           </div>
         )
@@ -123,6 +131,18 @@ export default function NutritionScreen() {
           ))}
         </div>
       </div>
+
+      {profile.supplements.length > 0 && (
+        <div className="card">
+          <div className="card-title"><h3>Takviyeler</h3><span className="muted small">{supps.filter((x) => profile.supplements.includes(x)).length}/{profile.supplements.length}</span></div>
+          <div className="chips wrap">
+            {profile.supplements.map((x) => (
+              <button key={x} className={`chip ${supps.includes(x) ? 'on' : ''}`} onClick={() => setKV('supps:' + day, supps.includes(x) ? supps.filter((y) => y !== x) : [...supps, x])}>{supps.includes(x) ? '✓ ' : ''}{x}</button>
+            ))}
+          </div>
+          <p className="muted tiny">Listeyi Profil'den düzenleyebilirsin.</p>
+        </div>
+      )}
 
       {logged.length > 0 && (
         <div className="card">
@@ -145,6 +165,41 @@ export default function NutritionScreen() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+
+type Energy = ReturnType<typeof useDayEnergy>
+export function EnergyCard({ t, burn, steps, training, eaten, eatBack, stepsDefault, compact, healthKcal }: { t: Energy['t']; burn: Energy['burn']; steps: number | null; training: boolean; healthKcal?: number | null; eaten?: number; eatBack: boolean; stepsDefault: number; compact?: boolean }) {
+  const active = burn.kcal + t.steps
+  return (
+    <div className="card">
+      <div className="card-title"><h3>Yakılan kalori</h3><span className="pill">{training ? 'antrenman günü' : 'dinlenme günü'}</span></div>
+      <div className="stat-row">
+        <div className="stat"><b>{burn.kcal}</b><span>antrenman</span></div>
+        <div className="stat"><b>{t.steps}</b><span>{(steps ?? stepsDefault).toLocaleString('tr-TR')} adım{steps == null ? ' (ort.)' : ''}</span></div>
+        <div className="stat"><b>{active}</b><span>toplam aktif</span></div>
+      </div>
+      {burn.parts.length > 0 && (
+        <div className="stack" style={{ gap: 4 }}>
+          {burn.parts.map((p, i) => (
+            <div key={i} className="row-between small">
+              <span className="grow ellipsis">{p.w.name}{!p.w.endedAt && <span className="muted"> (devam ediyor)</span>}</span>
+              <span className="mono muted tiny" style={{ whiteSpace: 'nowrap' }}>{Math.round(p.weightMin)} dk ağırlık{p.cardioMin >= 1 ? ` + ${Math.round(p.cardioMin)} dk kardiyo` : ''}</span>
+              <b className="mono" style={{ marginLeft: 8 }}>{p.kcal}</b>
+            </div>
+          ))}
+        </div>
+      )}
+      {healthKcal != null && <p className="small">Apple Sağlık aktif enerji: <b>{healthKcal} kcal</b> (uygulamanın tahmini {active} kcal).</p>}
+      {!compact && (
+        <>
+          <p className="small">Günlük harcama ≈ <b>{t.tdee}</b> kcal: bazal {t.bmr} + günlük yaşam {t.base - t.bmr} + adım {t.steps} + antrenman {t.training}{eatBack ? '' : ' (haftalık ortalama)'}.{eaten != null && eaten > 0 && <> Bugünkü denge: <b className={eaten - t.tdee <= 0 ? 'good' : 'warn'}>{eaten - t.tdee > 0 ? '+' : ''}{Math.round(eaten - t.tdee)} kcal</b>.</>}</p>
+          {t.cycle !== 0 && <p className="muted tiny">Karbonhidrat döngüsü: bugün hedef {t.cycle > 0 ? '+' : ''}{t.cycle} kcal.</p>}
+          <p className="muted tiny">Saatlik değerler ve adım hedefi Profil'den değiştirilebilir.{eatBack ? ' Yakılan kalori hedefe ekleniyor.' : ''}</p>
+        </>
       )}
     </div>
   )

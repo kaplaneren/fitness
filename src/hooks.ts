@@ -2,6 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { db, DEFAULT_PROFILE, allExercises, type Profile, type Workout } from './db'
 import type { Exercise } from './data/exercises'
+import { dayBurn } from './lib/health'
+import { targets } from './lib/nutrition'
 
 export function useProfile(): Profile {
   const row = useLiveQuery(() => db.kv.get('profile'), [])
@@ -66,4 +68,23 @@ export function beep(times = 3) {
     o.start(t); o.stop(t + 0.3)
   }
   navigator.vibrate?.(300)
+}
+
+/** Bir günün yakılan kalorisi ve o güne göre beslenme hedefleri. */
+export function useDayEnergy(day: string) {
+  const profile = useProfile()
+  const { map } = useExercises()
+  const { workout } = useActiveWorkout()
+  const ws = useLiveQuery(() => {
+    const [y, m, d] = day.split('-').map(Number)
+    const s = new Date(y, m - 1, d).getTime()
+    return db.workouts.where('startedAt').between(s, s + 86400000).toArray()
+  }, [day]) ?? []
+  const checkin = useLiveQuery(() => db.checkins.get(day), [day])
+  const healthKcal = useLiveQuery(async () => ((await db.kv.get('healthKcal:' + day))?.value as number | undefined) ?? null, [day]) ?? null
+  useNow(60000, !!workout)
+  const burn = dayBurn(day, ws, map, profile, workout)
+  const training = burn.parts.length > 0
+  const t = targets(profile, { burn: burn.kcal, steps: checkin?.steps, training })
+  return { profile, burn, t, steps: checkin?.steps ?? null, training, healthKcal }
 }

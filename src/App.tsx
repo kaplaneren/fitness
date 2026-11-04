@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useActiveWorkout, useNow, useProfile } from './hooks'
 import { fmtDuration } from './lib/calc'
-import { DialogHost } from './components/Dialog'
+import { DialogHost, notify } from './components/Dialog'
+import { importFromUrl } from './lib/healthImport'
 import Dashboard from './screens/Dashboard'
 import StartScreen from './screens/Start'
 import NutritionScreen from './screens/Nutrition'
@@ -36,6 +37,7 @@ export default function App() {
   }, [profile.theme])
 
   useEffect(() => { window.scrollTo(0, 0) }, [tab])
+  useEffect(() => { importFromUrl().then((m) => { if (m) notify(m) }).catch(() => {}) }, [])
 
   return (
     <div className="app">

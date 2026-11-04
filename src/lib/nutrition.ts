@@ -8,16 +8,40 @@ export function shiftDay(key: string, delta: number) {
   return todayKey(new Date(y, m - 1, d + delta))
 }
 
-/** Mifflin-St Jeor ile bazal metabolizma ve hedefler. */
-export function targets(p: Profile) {
+/** Adım başına net kalori ≈ 0,00045 × kilo (80 kg için 7500 adım ≈ 270 kcal). */
+export const stepKcal = (steps: number, kg: number) => Math.round(steps * kg * 0.00045)
+
+export interface DayContext {
+  /** O gün antrenmanla yakılan aktif kalori (biliniyorsa) */
+  burn?: number
+  /** O günkü gerçek adım sayısı (Sağlık'tan geldiyse) */
+  steps?: number
+  /** O gün antrenman günü mü */
+  training?: boolean
+}
+
+/** Mifflin-St Jeor bazal metabolizma + adım + antrenman kalorisi ile günlük harcama ve hedefler. */
+export function targets(p: Profile, day: DayContext = {}) {
   const bmr = 10 * p.bodyweight + 6.25 * p.height - 5 * p.age + (p.sex === 'm' ? 5 : -161)
-  const tdee = bmr * p.activity
+  const base = bmr * 1.2
+  const steps = stepKcal(day.steps ?? p.steps, p.bodyweight)
+  // Ortalama antrenman günü 1 saat ağırlık antrenmanı varsayılır
+  const avgTraining = (p.weeklyTarget * p.kcalWeights) / 7
+  const training = p.eatBack && day.burn != null ? day.burn : avgTraining
+  const tdee = base + steps + training
   const adj = p.goal === 'cut' ? -450 : p.goal === 'bulk' ? 250 : 0
-  const kcal = p.kcalTarget || Math.round((tdee + adj) / 10) * 10
+  let kcal = p.kcalTarget || Math.round((tdee + adj) / 10) * 10
+  // Karbonhidrat döngüsü: antrenman günü +200 kcal karbonhidrat, dinlenme günleri haftalık dengeyi korur
+  let cycle = 0
+  if (p.carbCycling && !p.eatBack && day.training != null) {
+    const w = Math.min(6, Math.max(1, p.weeklyTarget))
+    cycle = day.training ? 200 : -Math.round((200 * w) / (7 - w))
+    kcal += cycle
+  }
   const protein = p.proteinTarget || Math.round(p.bodyweight * (p.goal === 'cut' ? 2.1 : 1.8))
   const fat = p.fatTarget || Math.round(p.bodyweight * 0.8)
   const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4))
-  return { bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, protein, fat, carbs }
+  return { bmr: Math.round(bmr), base: Math.round(base), steps, training: Math.round(training), tdee: Math.round(tdee), kcal, protein, fat, carbs, cycle }
 }
 
 export function portion(food: Food, grams: number) {

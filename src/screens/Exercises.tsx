@@ -122,6 +122,25 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
           </div>
         )}
 
+        {(() => {
+          const side = (k: 'L' | 'R') => Math.max(0, ...all.filter((x) => x.side === k).map((x) => e1rm(x.weight, x.reps)))
+          const vol = (k: 'L' | 'R') => all.filter((x) => x.side === k).reduce((a, x) => a + (x.weight ?? 0) * (x.reps ?? 0), 0)
+          const l = side('L'), r = side('R')
+          if (!l || !r) return null
+          const diff = ((l - r) / Math.max(l, r)) * 100
+          return (
+            <div className="card">
+              <h3>Sağ / sol farkı</h3>
+              <div className="stat-row">
+                <div className="stat"><b>{fmtKg(l)}</b><span>sol tahmini 1RM</span></div>
+                <div className="stat"><b>{fmtKg(r)}</b><span>sağ tahmini 1RM</span></div>
+                <div className="stat"><b className={Math.abs(diff) > 10 ? 'warn' : 'good'}>%{Math.abs(diff).toFixed(0)}</b><span>{diff > 0 ? 'sol güçlü' : diff < 0 ? 'sağ güçlü' : 'eşit'}</span></div>
+              </div>
+              <p className="small">Toplam hacim: sol {fmtKg(vol('L'))} kg, sağ {fmtKg(vol('R'))} kg. {Math.abs(diff) > 10 ? 'Fark %10 üstünde; zayıf tarafla başla ve güçlü tarafta onun tekrarını geçme.' : 'Fark normal aralıkta (%10 altı).'}</p>
+            </div>
+          )
+        })()}
+
         {score > 0 && (
           <div className="card">
             <div className="card-title"><h3>Güç seviyesi</h3><span className="pill">{levelOf(score)}</span></div>

@@ -1,9 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Routine } from '../db'
-import { useActiveWorkout, useExercises, useProfile } from '../hooks'
+import { useActiveWorkout, useDayEnergy, useExercises, useProfile } from '../hooks'
+import { CheckinCard } from './Health'
 import { DAY, WEEKLY_RANGE, levelOf, muscleSets, strengthProfile } from '../lib/analysis'
 import { fmtDate, fmtKg, workoutSetCount, workoutVolume } from '../lib/calc'
-import { sumEntries, targets, todayKey } from '../lib/nutrition'
+import { sumEntries, todayKey } from '../lib/nutrition'
 import { startWorkout } from '../lib/workout'
 import { parseRange, recommend } from '../lib/progression'
 import { mondayOf } from '../lib/insights'
@@ -18,7 +19,7 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
   const profile = useProfile()
   const { map } = useExercises()
   const { workout } = useActiveWorkout()
-  const t = targets(profile)
+  const { t, burn } = useDayEnergy(todayKey())
   const today = useLiveQuery(() => db.diary.where('date').equals(todayKey()).toArray(), []) ?? []
   const workouts = useLiveQuery(() => db.workouts.orderBy('startedAt').toArray(), []) ?? []
   const routines = useLiveQuery(() => db.routines.toArray(), []) ?? []
@@ -33,9 +34,11 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
 
   // Sıradaki rutin: en son kullanılan rutinin klasöründe sıradaki
   let next: Routine | undefined
-  if (routines.length) {
-    const lastR = last?.routineId ? routines.find((r) => r.id === last.routineId) : undefined
-    const folder = routines.filter((r) => (r.folder ?? '') === (lastR?.folder ?? routines[0].folder ?? '')).sort((a, b) => a.name.localeCompare(b.name, 'tr'))
+  const mainRoutines = routines.filter((r) => r.folder !== 'Isınma ve mobilite')
+  if (mainRoutines.length) {
+    const lastMain = [...workouts].reverse().find((w) => w.routineId && mainRoutines.some((r) => r.id === w.routineId))
+    const lastR = lastMain ? mainRoutines.find((r) => r.id === lastMain.routineId) : undefined
+    const folder = mainRoutines.filter((r) => (r.folder ?? '') === (lastR?.folder ?? mainRoutines[0].folder ?? '')).sort((a, b) => a.name.localeCompare(b.name, 'tr'))
     const idx = lastR ? folder.findIndex((r) => r.id === lastR.id) : -1
     next = folder[(idx + 1) % folder.length]
   }
@@ -72,6 +75,8 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
         </div>
       </div>
 
+      <CheckinCard />
+
       <div className="card">
         <div className="card-title"><h3>Sıradaki antrenman</h3>{last && <span className="muted tiny">son: {fmtDate(last.startedAt)}</span>}</div>
         {next ? (
@@ -107,6 +112,7 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
           <MacroRing eaten={total.kcal} target={t.kcal} />
           <MacroBars p={total.p} c={total.c} f={total.f} t={t} />
         </div>
+        <div className="row-between small"><span className="muted">Bugün yakılan (antrenman + adım)</span><b className="mono">{burn.kcal + t.steps} kcal</b></div>
       </button>
 
       <div className="stat-row">

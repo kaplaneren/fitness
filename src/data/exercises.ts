@@ -158,6 +158,19 @@ const rows: Row[] = [
   ['farmers_walk', 'Farmer\'s Walk', 'dumbbell', ['onkol', 'trapez'], ['karin', 'oblik'], ['axial'], 'weight'],
   ['suitcase_carry', 'Suitcase Carry (Tek Kol)', 'dumbbell', ['oblik'], ['onkol', 'trapez'], [], 'weight'],
 
+  // MOBİLİTE VE ISINMA
+  ['cat_cow', 'Kedi-Deve (Cat-Cow)', 'bodyweight', ['bel'], ['karin'], [], 'reps', 'Yavaş ve ağrısız aralıkta; nefesle birlikte omurgayı yuvarla ve aç.'],
+  ['dead_hang', 'Barda Asılma (Dead Hang)', 'bodyweight', ['onkol'], ['kanat'], [], 'time', 'Omurgayı rahatlatır. Bilek ağrırsa askı kayışı kullan.'],
+  ['thoracic_rotation', 'Göğüs Omurgası Rotasyonu (Yan yatarak)', 'bodyweight', ['sirt_ust'], ['oblik'], [], 'reps', 'Dizler kalça hizasında, bel sabit; sadece üst sırt döner.'],
+  ['wall_angel', 'Duvar Meleği (Wall Angel)', 'bodyweight', ['arka_omuz', 'sirt_ust'], [], [], 'reps', 'Sırt, baş ve kollar duvara değsin; kolları yavaşça yukarı kaydır.'],
+  ['band_pull_apart', 'Band Pull-Apart', 'band', ['arka_omuz'], ['sirt_ust'], [], 'reps'],
+  ['hip_9090', '90/90 Kalça Mobilitesi', 'bodyweight', ['kalca'], ['ic_bacak'], [], 'reps'],
+  ['hip_flexor_stretch', 'Kalça Fleksör Esnetme', 'bodyweight', ['on_bacak'], ['kalca'], [], 'time', 'Diz altına yastık koy; kalçayı hafif öne it, beli çukurlaştırma.'],
+  ['childs_pose', 'Çocuk Pozu', 'bodyweight', ['bel'], ['kanat'], [], 'time'],
+  ['mcgill_curl_up', 'McGill Curl-up', 'bodyweight', ['karin'], [], [], 'reps', 'Bel nötr, bir diz bükülü; baş ve omuzlar yalnızca birkaç cm kalkar. Bel dostu karın hareketi.'],
+  ['clamshell', 'Clamshell (Lastikle)', 'band', ['kalca'], [], [], 'reps', 'Diz sağlığı için kalça dış rotatorlarını güçlendirir.'],
+  ['tke', 'Terminal Diz Ekstansiyonu (Lastikle)', 'band', ['on_bacak'], [], [], 'reps', 'Kondromalazi rehabilitasyonunda kullanılan, dize düşük yük bindiren son açı ekstansiyonu.'],
+
   // KARDİYO
   ['treadmill_incline', 'Eğimli Yürüyüş (Koşu Bandı)', 'machine', ['baldir'], ['kalca'], [], 'time', 'Diz dostu kardiyo; nabzı not et.'],
   ['bike', 'Bisiklet', 'machine', ['on_bacak'], ['baldir'], [], 'time', 'Sele yüksekliği: pedal altta iken diz hafif bükülü.'],

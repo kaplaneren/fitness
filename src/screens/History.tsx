@@ -2,7 +2,8 @@ import { ask, notify } from '../components/Dialog'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { db, setKV, type Workout } from '../db'
-import { useExercises } from '../hooks'
+import { useExercises, useProfile } from '../hooks'
+import { workoutBurn } from '../lib/health'
 import { e1rm, fmtDate, fmtDuration, fmtKg, workoutSetCount, workoutVolume } from '../lib/calc'
 import { DAY, analyzeWorkout, bestE1rmByExercise, trend } from '../lib/analysis'
 import LineChart from '../components/LineChart'
@@ -104,6 +105,8 @@ export function WorkoutDetail({ w, onClose, justFinished }: { w: Workout; onClos
     return list
   }, [w.id, map]) ?? []
   const analysis = analyzeWorkout(w, map)
+  const profile = useProfile()
+  const burn = workoutBurn(w, map, profile)
   const [openEx, setOpenEx] = useState<string | null>(null)
 
   const remove = async () => { if (await ask('Bu antrenman silinsin mi?', { danger: true, ok: 'Sil' })) { await db.workouts.delete(w.id!); onClose() } }
@@ -128,8 +131,10 @@ export function WorkoutDetail({ w, onClose, justFinished }: { w: Workout; onClos
           <div className="stat"><b>{fmtDuration((w.endedAt ?? w.startedAt) - w.startedAt)}</b><span>süre</span></div>
           <div className="stat"><b>{fmtKg(workoutVolume(w))}</b><span>kg hacim</span></div>
           <div className="stat"><b>{workoutSetCount(w)}</b><span>set</span></div>
+          <div className="stat"><b>{burn.kcal}</b><span>kcal yakıldı</span></div>
           {w.heartRateAvg && <div className="stat"><b>{w.heartRateAvg}</b><span>ort. nabız</span></div>}
         </div>
+        <p className="muted tiny">Yakılan kalori: {Math.round(burn.weightMin)} dk ağırlık × {profile.kcalWeights} kcal/saat{burn.cardioMin >= 1 ? ` + ${Math.round(burn.cardioMin)} dk kardiyo × ${profile.kcalCardio} kcal/saat` : ''}.</p>
         {prs.length > 0 && (
           <div className="card">
             <h3>Yeni rekorlar</h3>

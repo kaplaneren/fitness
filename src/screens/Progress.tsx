@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { db, type Measurement } from '../db'
 import { MUSCLE_NAMES, type Muscle } from '../data/exercises'
 import { useExercises, useProfile } from '../hooks'
@@ -9,15 +9,16 @@ import BodyMap from '../components/BodyMap'
 import LineChart, { Bars } from '../components/LineChart'
 import { HistoryList } from './History'
 import ExerciseLibrary, { ExerciseDetail } from './Exercises'
+import { HealthView } from './Health'
 import VersionFooter from '../components/VersionFooter'
-import { ask, notify } from '../components/Dialog'
+import { notify } from '../components/Dialog'
 import { NutritionAnalysis, WeeklyReport, WeightAnalysis } from './Analysis'
 import { MultiLine } from '../components/LineChart'
 import { bodyFatSeries, groupVolumeWeeks, seriesTrend } from '../lib/insights'
 
 const GROUP_COLORS: [string, string][] = [['Göğüs', 'var(--plate-red)'], ['Sırt', 'var(--accent)'], ['Omuz', 'var(--plate-yellow)'], ['Kol', 'var(--ink-2)'], ['Bacak', 'var(--plate-green)'], ['Karın', 'color-mix(in srgb, var(--accent) 45%, var(--plate-red))']]
 
-type View = 'rapor' | 'guc' | 'kas' | 'vucut' | 'beslenme' | 'gecmis'
+type View = 'rapor' | 'guc' | 'kas' | 'vucut' | 'saglik' | 'beslenme' | 'gecmis'
 
 export default function ProgressScreen() {
   const [view, setView] = useState<View>('rapor')
@@ -25,7 +26,7 @@ export default function ProgressScreen() {
     <div className="screen">
       <div className="screen-head"><h1>İlerleme</h1></div>
       <div className="chips">
-        {([['rapor', 'Haftalık rapor'], ['guc', 'Güç'], ['kas', 'Kaslar'], ['vucut', 'Vücut'], ['beslenme', 'Beslenme'], ['gecmis', 'Geçmiş']] as const).map(([v, l]) => (
+        {([['rapor', 'Haftalık rapor'], ['guc', 'Güç'], ['kas', 'Kaslar'], ['vucut', 'Vücut'], ['saglik', 'Sağlık'], ['beslenme', 'Beslenme'], ['gecmis', 'Geçmiş']] as const).map(([v, l]) => (
           <button key={v} className={`chip ${view === v ? 'on' : ''}`} onClick={() => setView(v)}>{l}</button>
         ))}
       </div>
@@ -34,6 +35,7 @@ export default function ProgressScreen() {
       {view === 'guc' && <Strength />}
       {view === 'kas' && <Muscles />}
       {view === 'vucut' && <Body />}
+      {view === 'saglik' && <HealthView />}
       {view === 'gecmis' && <HistoryList />}
       <VersionFooter />
     </div>
@@ -204,10 +206,8 @@ function Muscles() {
 function Body() {
   const profile = useProfile()
   const ms = useLiveQuery(() => db.measurements.orderBy('date').toArray(), []) ?? []
-  const photos = useLiveQuery(() => db.photos.orderBy('date').reverse().toArray(), []) ?? []
   const [form, setForm] = useState<Partial<Measurement>>({})
   const [metric, setMetric] = useState<'weight' | 'waist' | 'bodyFat'>('waist')
-  const fileRef = useRef<HTMLInputElement>(null)
   const last = [...ms].reverse()
   const lastWith = (k: keyof Measurement) => last.find((m) => m[k] != null)?.[k] as number | undefined
 
@@ -266,17 +266,6 @@ function Body() {
         })()}
       </div>
 
-      <div className="card">
-        <div className="card-title"><h3>İlerleme fotoğrafları</h3><button className="btn sm" onClick={() => fileRef.current?.click()}>+ Fotoğraf</button></div>
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={async (e) => {
-          const f = e.target.files?.[0]; e.target.value = ''
-          if (f) await db.photos.add({ date: Date.now(), blob: f })
-        }} />
-        {photos.length === 0 ? <p className="muted small">Aynı ışıkta, aynı açıdan, haftada bir fotoğraf çek. Fotoğraflar sadece telefonunda kalır.</p> : (
-          <div className="photo-grid">{photos.map((p) => <PhotoThumb key={p.id} id={p.id!} blob={p.blob} date={p.date} />)}</div>
-        )}
-      </div>
-
       {last.length > 0 && (
         <div className="card">
           <h3>Ölçüm geçmişi</h3>
@@ -289,16 +278,5 @@ function Body() {
         </div>
       )}
     </>
-  )
-}
-
-function PhotoThumb({ id, blob, date }: { id: number; blob: Blob; date: number }) {
-  const [url, setUrl] = useState('')
-  useEffect(() => { const u = URL.createObjectURL(blob); setUrl(u); return () => URL.revokeObjectURL(u) }, [blob])
-  return (
-    <button onClick={async () => { if (await ask(`${fmtDate(date)} tarihli fotoğraf silinsin mi?`, { danger: true, ok: 'Sil' })) await db.photos.delete(id) }} style={{ padding: 0 }}>
-      {url && <img src={url} alt={`İlerleme fotoğrafı, ${fmtDate(date)}`} />}
-      <span className="tiny muted">{new Date(date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</span>
-    </button>
   )
 }
