@@ -2,7 +2,7 @@ import type { Exercise } from '../data/exercises'
 import type { SetEntry, Workout } from '../db'
 import { e1rm } from './calc'
 
-// Form'un ilerleme algoritması: RIR destekli çift ilerleme (double progression).
+// Uygulamanın ilerleme algoritması: RIR destekli çift ilerleme (double progression).
 // 1) Tüm setlerde tekrar aralığının üstüne ulaşıldı ve tükenişe pay kaldıysa ağırlık artar.
 // 2) Aralık içindeyse aynı ağırlıkta her sete +1 tekrar hedeflenir.
 // 3) Alt sınırın altında kalındıysa aynı ağırlık korunur; iki seans üst üste olursa ağırlık %10 düşer.

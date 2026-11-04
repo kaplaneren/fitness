@@ -17,8 +17,8 @@ export default defineConfig({
       injectRegister: null,
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'Form – Antrenman & Beslenme',
-        short_name: 'Form',
+        name: 'Fitness',
+        short_name: 'Fitness',
         lang: 'tr',
         start_url: './',
         scope: './',

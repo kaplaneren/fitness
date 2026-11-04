@@ -38,13 +38,13 @@ export default function ProfileScreen() {
   useEffect(() => {
     let alive = true
     exportBackup().then((data) => {
-      const name = `form-yedek-${new Date().toISOString().slice(0, 10)}.json`
+      const name = `fitness-yedek-${new Date().toISOString().slice(0, 10)}.json`
       if (alive) setReady(new File([JSON.stringify(data)], name, { type: 'application/json' }))
     }).catch(() => {})
     return () => { alive = false }
   }, [dataStamp])
   const doExport = async () => {
-    const file = ready ?? new File([JSON.stringify(await exportBackup())], `form-yedek-${new Date().toISOString().slice(0, 10)}.json`, { type: 'application/json' })
+    const file = ready ?? new File([JSON.stringify(await exportBackup())], `fitness-yedek-${new Date().toISOString().slice(0, 10)}.json`, { type: 'application/json' })
     const r = await saveFile(file)
     if (r === 'cancel') return
     await update({ lastBackup: Date.now() })
@@ -56,7 +56,7 @@ export default function ProfileScreen() {
       if (!await ask('Telefondaki mevcut verilerin tamamı yedektekiyle değiştirilecek.', { title: 'Yedek geri yüklensin mi?', danger: true, ok: 'Geri yükle' })) return
       await importBackup(json)
       notify('Yedek geri yüklendi.')
-    } catch (e) { notify((e as Error).message || 'Dosya okunamadı. Form uygulamasından alınmış bir .json yedeği seç.') }
+    } catch (e) { notify((e as Error).message || 'Dosya okunamadı. Fitness uygulamasından alınmış bir .json yedeği seç.') }
   }
   const backupAge = profile.lastBackup ? Math.floor((Date.now() - profile.lastBackup) / 86400000) : null
 
@@ -173,8 +173,8 @@ export default function ProfileScreen() {
         <h3>Dışa ve içe aktarma</h3>
         <p className="muted small">CSV dosyasını Excel veya Numbers'ta açabilirsin.</p>
         <div className="row">
-          <button className="btn grow" onClick={async () => { try { await shareFile(`form-antrenman-${new Date().toISOString().slice(0, 10)}.csv`, await workoutsCsv(map)) } catch { /* iptal */ } }}>Antrenman CSV</button>
-          <button className="btn grow" onClick={async () => { try { await shareFile(`form-beslenme-${new Date().toISOString().slice(0, 10)}.csv`, await diaryCsv()) } catch { /* iptal */ } }}>Beslenme CSV</button>
+          <button className="btn grow" onClick={async () => { try { await shareFile(`fitness-antrenman-${new Date().toISOString().slice(0, 10)}.csv`, await workoutsCsv(map)) } catch { /* iptal */ } }}>Antrenman CSV</button>
+          <button className="btn grow" onClick={async () => { try { await shareFile(`fitness-beslenme-${new Date().toISOString().slice(0, 10)}.csv`, await diaryCsv()) } catch { /* iptal */ } }}>Beslenme CSV</button>
         </div>
         <button className="btn" onClick={() => strongRef.current?.click()}>Strong'dan içe aktar</button>
         <p className="muted tiny">Strong → Profil → Ayarlar → Verileri dışa aktar ile aldığın CSV'yi seç. Aynı antrenman iki kez eklenmez, eşleşmeyen hareketler özel hareket olarak eklenir.</p>
@@ -194,7 +194,7 @@ export default function ProfileScreen() {
         <ol className="small" style={{ paddingLeft: 18, margin: 0 }}>
           <li>Kısayollar → + → <b>Sağlık Örneklerini Bul</b>: Adımlar, bugün, toplam. Aynısını <b>Vücut Ağırlığı</b> (son 1), <b>Uyku Analizi</b> (dün gece) ve <b>Aktif Enerji</b> (bugün, toplam) için ekle.</li>
           <li><b>URL</b> eylemi ekle: <code className="tiny" style={{ wordBreak: 'break-all' }}>{location.origin + location.pathname}?steps=[Adımlar]&amp;w=[Ağırlık]&amp;sleep=[Uyku saat]&amp;kcal=[Aktif Enerji]</code></li>
-          <li><b>URL'leri Aç</b> eylemini ekle. Ana ekrandaki Form'u açması için adres, uygulamayı yüklediğin adresle aynı olmalı.</li>
+          <li><b>URL'leri Aç</b> eylemini ekle. Ana ekrandaki Fitness'ı açması için adres, uygulamayı yüklediğin adresle aynı olmalı.</li>
           <li>Otomasyon → Günün saati (ör. 09:00) → bu kısayolu çalıştır.</li>
         </ol>
         <p className="muted tiny">Kilo ölçümlere, adım ve uyku günlük kontrole yazılır; adım kalorisi gerçek adımınla hesaplanır. Android'de tarayıcı uygulamaları Health Connect'e erişemez; adımı ana sayfadaki günlük kontrolden elle girebilirsin, girmezsen Profil'deki ortalama adım kullanılır.</p>

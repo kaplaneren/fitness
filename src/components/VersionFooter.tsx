@@ -8,7 +8,8 @@ export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
     'Kısıta takılan hareketlerde ağırlık artışı temkinli; o bölgede ağrı 4/10 ve üstüyse ağırlık %15 düşer',
     'Günlük kontrole omuz ağrısı ve adım girişi eklendi',
     'Yedekleme iPhone ve Android\'de paylaşım menüsü veya indirme ile çalışıyor; geri yükleme her dosya seçiciyle açılıyor',
-    'Kayan ve sıkışan butonlar düzeltildi (sekmeler, form alanları, alt çubuk)'
+    'Kayan ve sıkışan butonlar düzeltildi (sekmeler, form alanları, alt çubuk)',
+    'Uygulamanın adı Fitness oldu, yeni dambıl logosu'
   ] },
   { v: '0.4.0', date: '4 Kasım 2026', items: [
     'Yakılan kalori: ağırlık 380, kardiyo 500 kcal/saat ve 7500 adım varsayılanı (Profil\'den değişir); antrenman sonunda, beslenmede ve haftalık raporda gösterilir',
@@ -65,7 +66,7 @@ export default function VersionFooter() {
   const built = new Date(__BUILD_TIME__).toLocaleString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
   return (
     <footer className="footer">
-      <span>Form {__APP_VERSION__} · {built}</span>
+      <span>Fitness {__APP_VERSION__} · {built}</span>
       <div className="row">
         <button className="btn sm" disabled={busy} onClick={async () => { setBusy(true); await checkForUpdate(); setBusy(false) }}>{busy ? 'Kontrol ediliyor…' : 'Güncellemeleri kontrol et'}</button>
         <button className="btn sm" onClick={() => setOpen(true)}>Sürüm notları</button>
