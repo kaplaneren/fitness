@@ -74,7 +74,7 @@ export default function RoutineEditor({ routine, onClose }: { routine: Routine; 
               <div className="fields">
                 <label>Set<input type="number" inputMode="numeric" value={e.sets} min={1} onChange={(v) => upd(i, { sets: Math.max(1, +v.target.value || 1) })} /></label>
                 <label>Tekrar<input value={e.reps} onChange={(v) => upd(i, { reps: v.target.value })} /></label>
-                <label>Dinlenme (sn)<input type="number" inputMode="numeric" value={e.restSec} onChange={(v) => upd(i, { restSec: +v.target.value || 0 })} /></label>
+                <label>Dinl. (sn)<input type="number" inputMode="numeric" value={e.restSec} onChange={(v) => upd(i, { restSec: +v.target.value || 0 })} /></label>
               </div>
               {i < r.exercises.length - 1 && (
                 <button className="link small" onClick={() => linkNext(i)}>{linked ? 'Sonrakiyle süperseti kaldır' : 'Sonrakiyle süperset yap'}</button>

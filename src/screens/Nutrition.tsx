@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { db, getKV, setKV, type DiaryEntry, type Meal, type MealTemplate } from '../db'
 import { useDayEnergy } from '../hooks'
 import { MEALS, shiftDay, sumEntries, todayKey } from '../lib/nutrition'
+import { fmtKg } from '../lib/calc'
 import FoodSearch from './FoodSearch'
 import VersionFooter from '../components/VersionFooter'
 import { Bars } from '../components/LineChart'
@@ -196,9 +197,13 @@ export function EnergyCard({ t, burn, steps, training, eaten, eatBack, stepsDefa
       {healthKcal != null && <p className="small">Apple Sağlık aktif enerji: <b>{healthKcal} kcal</b> (uygulamanın tahmini {active} kcal).</p>}
       {!compact && (
         <>
-          <p className="small">Günlük harcama ≈ <b>{t.tdee}</b> kcal: bazal {t.bmr} + günlük yaşam {t.base - t.bmr} + adım {t.steps} + antrenman {t.training}{eatBack ? '' : ' (haftalık ortalama)'}.{eaten != null && eaten > 0 && <> Bugünkü denge: <b className={eaten - t.tdee <= 0 ? 'good' : 'warn'}>{eaten - t.tdee > 0 ? '+' : ''}{Math.round(eaten - t.tdee)} kcal</b>.</>}</p>
+          <p className="small">Bugünkü toplam harcama ≈ <b>{t.tdee}</b> kcal (bazal {t.bmr} + günlük yaşam {t.base - t.bmr} + adım {t.steps} + antrenman {t.training}).</p>
+          {eatBack
+            ? <p className="small">Yakılan kalori hedefe ekleniyor; hedef {t.kcal} kcal.</p>
+            : <p className="small">Yakılan <b>{active} kcal</b> diyetten düşülmüyor; hedefin {t.kcal} kcal sabit kalıyor ve bu ekstra açık oluyor. Hedefe uyarsan bugünkü toplam açık ≈ <b>{t.deficit} kcal</b> (haftada ≈ {fmtKg(t.weeklyKg)} kg).</p>}
+          {eaten != null && eaten > 0 && <p className="small">Şu ana kadar denge: <b className={eaten - t.tdee <= 0 ? 'good' : 'warn'}>{eaten - t.tdee > 0 ? '+' : ''}{Math.round(eaten - t.tdee)} kcal</b></p>}
           {t.cycle !== 0 && <p className="muted tiny">Karbonhidrat döngüsü: bugün hedef {t.cycle > 0 ? '+' : ''}{t.cycle} kcal.</p>}
-          <p className="muted tiny">Saatlik değerler ve adım hedefi Profil'den değiştirilebilir.{eatBack ? ' Yakılan kalori hedefe ekleniyor.' : ''}</p>
+          <p className="muted tiny">Saatlik değerler, adım ve bu ayar Profil'den değiştirilebilir.</p>
         </>
       )}
     </div>

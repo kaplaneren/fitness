@@ -37,11 +37,12 @@ export default function App() {
   }, [profile.theme])
 
   useEffect(() => { window.scrollTo(0, 0) }, [tab])
+  useEffect(() => { navigator.storage?.persist?.().catch(() => {}) }, [])
   useEffect(() => { importFromUrl().then((m) => { if (m) notify(m) }).catch(() => {}) }, [])
 
   return (
     <div className="app">
-      <main className="main">
+      <main className={`main ${workout && !workoutOpen ? 'with-resume' : ''}`}>
         {tab === 'home' && <Dashboard go={setTab} onStarted={() => setWorkoutOpen(true)} />}
         {tab === 'workout' && <StartScreen onStarted={() => setWorkoutOpen(true)} />}
         {tab === 'food' && <NutritionScreen />}

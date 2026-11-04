@@ -1,4 +1,4 @@
-import { BUILTIN_EXERCISES, type Flag } from '../data/exercises'
+import { BUILTIN_EXERCISES, FLAG_INFO, type Flag } from '../data/exercises'
 import type { RoutineExercise } from '../db'
 
 export type Adherence = 'iyi' | 'orta' | 'kotu'
@@ -16,9 +16,9 @@ const SLOTS: Record<string, string[]> = {
   vpull2: ['lat_pulldown_close', 'straight_arm_pulldown'],
   hpull: ['barbell_row', 'chest_supported_row', 'seated_cable_row'],
   hpull2: ['one_arm_db_row', 'seated_cable_row', 'incline_db_row'],
-  vpush: ['ohp', 'seated_db_press', 'machine_shoulder_press'],
-  quad: ['squat', 'belt_squat', 'leg_press'],
-  quad2: ['bulgarian_split', 'leg_press_single', 'step_up'],
+  vpush: ['ohp', 'seated_db_press', 'machine_shoulder_press', 'landmine_press'],
+  quad: ['squat', 'belt_squat', 'leg_press', 'leg_extension'],
+  quad2: ['bulgarian_split', 'leg_press_single', 'step_up', 'tke'],
   quadIso: ['leg_extension'],
   hinge: ['rdl', 'db_rdl', 'back_extension_45'],
   glute: ['hip_thrust', 'hip_thrust_machine'],
@@ -36,7 +36,7 @@ const SLOTS: Record<string, string[]> = {
   core: ['pallof_press', 'dead_bug'],
   core2: ['side_plank', 'hanging_knee_raise', 'dead_bug'],
   abduct: ['hip_abduction'],
-  cardio: ['treadmill_incline', 'bike']
+  cardio: ['treadmill_incline', 'bike', 'elliptical']
 }
 const ISOLATION = new Set(['quadIso', 'hamIso', 'hamIso2', 'lateral', 'lateral2', 'rear', 'fly', 'biceps', 'biceps2', 'triceps', 'triceps2', 'calf', 'core', 'core2', 'abduct'])
 
@@ -63,7 +63,10 @@ function pick(slot: string, restrictions: Flag[]) {
     const ex = BUILTIN_EXERCISES.find((e) => e.id === id)
     return ex && !ex.flags.some((f) => restrictions.includes(f))
   })
-  return ok[0] ?? null
+  if (ok[0]) return ok[0]
+  // Hepsi bir kısıta takılıyorsa en az takılanı seç; antrenmanda ağırlık önerisi temkinli olur.
+  const ranked = SLOTS[slot].map((id) => ({ id, n: BUILTIN_EXERCISES.find((e) => e.id === id)?.flags.filter((f) => restrictions.includes(f)).length ?? 9 })).sort((a, b) => a.n - b.n)
+  return ranked[0]?.id ?? null
 }
 
 export function buildPlan(inp: WizardInput): Plan {
@@ -138,7 +141,7 @@ export function buildPlan(inp: WizardInput): Plan {
     return { name, exercises: ex, minutes }
   })
 
-  if (inp.restrictions.length) notes.push('Sağlık kısıtlarına takılan hareketler (ör. barbell squat, deadlift, ayakta overhead press) yerine omurgayı ve dizi koruyan alternatifler seçildi.')
+  if (inp.restrictions.length) notes.push(`Sağlık kısıtlarına (${inp.restrictions.map((f) => FLAG_INFO[f].short).join(', ')}) takılan hareketler yerine güvenli alternatifler seçildi.`)
   if (inp.goal === 'yag') notes.push('Yağ yakımında kas kaybını önlemek için ağırlıkları düşürme; tekrar aralığını koru, kalori açığını beslenmeden yarat.')
   notes.push('İlerleme kuralı: bir hareketin tüm setlerinde tekrar aralığının üstüne çıktığında ağırlığı 2,5 kg (dambılda 1-2 kg) artır.')
 

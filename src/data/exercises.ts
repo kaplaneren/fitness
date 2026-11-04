@@ -4,13 +4,14 @@
 //   lumbar = bel bölgesine eğilme/kayma yükü bindirir
 //   knee   = dizde derin bükülme altında yük (menisküs / patella için riskli)
 //   wrist  = yük altında bilek ekstansiyonu (geriye bükülme)
+//   shoulder, elbow, neck, hip, ankle, pressure = EXTRA_FLAGS tablosunda
 
 export type Muscle =
   | 'gogus' | 'on_omuz' | 'yan_omuz' | 'arka_omuz' | 'triceps' | 'biceps' | 'onkol'
   | 'kanat' | 'sirt_ust' | 'trapez' | 'bel' | 'karin' | 'oblik'
   | 'kalca' | 'on_bacak' | 'arka_bacak' | 'ic_bacak' | 'baldir'
 
-export type Flag = 'axial' | 'lumbar' | 'knee' | 'wrist'
+export type Flag = 'axial' | 'lumbar' | 'knee' | 'wrist' | 'shoulder' | 'elbow' | 'neck' | 'hip' | 'ankle' | 'pressure'
 export type Equipment = 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'smith' | 'kettlebell' | 'band' | 'other'
 export type Kind = 'weight' | 'reps' | 'time' | 'assisted'
 
@@ -48,11 +49,17 @@ export const EQUIPMENT_NAMES: Record<Equipment, string> = {
   smith: 'Smith', kettlebell: 'Kettlebell', band: 'Lastik', other: 'Diğer'
 }
 
-export const FLAG_INFO: Record<Flag, { label: string; short: string }> = {
-  axial: { label: 'Omurgaya dikey yük (skolyoz / bel)', short: 'Omurga yükü' },
-  lumbar: { label: 'Bele eğilme yükü (bel fıtığı geçmişi)', short: 'Bel yükü' },
-  knee: { label: 'Derin diz bükülmesi altında yük (menisküs / kondromalazi)', short: 'Diz yükü' },
-  wrist: { label: 'Yük altında bilek ekstansiyonu (sol bilek)', short: 'Bilek' }
+export const FLAG_INFO: Record<Flag, { label: string; short: string; tip: string }> = {
+  axial: { label: 'Omurga sorunu (skolyoz, disk): omurgaya dikey yük', short: 'Omurga', tip: 'Sırtta bar taşımak yerine makine veya göğüs destekli versiyonları seç.' },
+  lumbar: { label: 'Bel ağrısı / bel fıtığı: öne eğilerek yük', short: 'Bel', tip: 'Beli nötr tut, öne eğilme açısını küçült, karın gerginliğini koru.' },
+  knee: { label: 'Diz ağrısı (menisküs, kıkırdak): derin diz bükme', short: 'Diz', tip: 'Ağrısız açıda çalış, dizi derin bükme, tempoyu yavaşlat.' },
+  wrist: { label: 'Bilek ağrısı: yük altında bileği geriye bükme', short: 'Bilek', tip: 'Dambıl veya nötr tutuş kullan, bileği düz tut, gerekirse bileklik tak.' },
+  shoulder: { label: 'Omuz sıkışması / rotator manşet: baş üstü ve derin itiş', short: 'Omuz', tip: 'Dirsekleri gövdeye 45° yaklaştır, hareket açıklığını ağrısız noktada kes.' },
+  elbow: { label: 'Dirsek ağrısı (tenisçi / golfçü dirseği)', short: 'Dirsek', tip: 'Halat, nötr tutuş veya kablo kullan; ağırlığı düşür, tekrarı artır.' },
+  neck: { label: 'Boyun ağrısı / boyun fıtığı', short: 'Boyun', tip: 'Boynu nötr tut, bar veya ped boyna baskı yapmasın.' },
+  hip: { label: 'Kalça ağrısı / sıkışma: derin kalça bükme', short: 'Kalça', tip: 'Derinliği sınırla, ayakları biraz aç, ağrı başlayan açının üstünde kal.' },
+  ankle: { label: 'Ayak bileği / aşil sorunu', short: 'Ayak bileği', tip: 'Topuk yükseltmeli ayakkabı veya oturarak versiyonları dene, sıçrama yapma.' },
+  pressure: { label: 'Yüksek tansiyon: ağır nefes tutma (Valsalva)', short: 'Tansiyon', tip: 'Nefesi tutma, ağır tek tekrarlardan kaçın, 8+ tekrarlı setlerde kal.' }
 }
 
 type Row = [string, string, Equipment, Muscle[], Muscle[], Flag[], Kind, string?, string[]?]
@@ -90,7 +97,7 @@ const rows: Row[] = [
   ['db_rdl', 'Romanian Deadlift (Dambıl)', 'dumbbell', ['arka_bacak', 'kalca'], ['bel'], ['lumbar'], 'weight', 'Hafif ağırlık, nötr bel, kalçayı geriye it.', ['back_extension_45', 'seated_leg_curl']],
   ['back_extension_45', '45° Back Extension', 'bodyweight', ['kalca', 'arka_bacak'], ['bel'], [], 'reps', 'Kalça odaklı yap: sırtı hafif yuvarla, bel üzerinden aşırı geriye gitme.'],
   ['shrug_db', 'Shrug (Dambıl)', 'dumbbell', ['trapez'], ['onkol'], [], 'weight'],
-  ['face_pull', 'Face Pull', 'cable', ['arka_omuz', 'sirt_ust'], ['trapez'], [], 'weight', 'Postür ve skolyoz için faydalı; ipi alına doğru çek, dışa döndür.'],
+  ['face_pull', 'Face Pull', 'cable', ['arka_omuz', 'sirt_ust'], ['trapez'], [], 'weight', 'Postür ve omuz sağlığı için faydalı; ipi alına doğru çek, dışa döndür.'],
 
   // OMUZ
   ['ohp', 'Overhead Press (Barbell, Ayakta)', 'barbell', ['on_omuz'], ['yan_omuz', 'triceps'], ['axial', 'wrist', 'lumbar'], 'weight', undefined, ['seated_db_press', 'machine_shoulder_press']],
@@ -128,8 +135,8 @@ const rows: Row[] = [
   ['hack_squat', 'Hack Squat (Makine)', 'machine', ['on_bacak'], ['kalca'], ['knee', 'axial'], 'weight', 'Omuz pedleri omurgaya yük bindirir; derinliği ağrısız açıyla sınırla.', ['leg_press']],
   ['belt_squat', 'Belt Squat', 'machine', ['on_bacak', 'kalca'], ['ic_bacak'], ['knee'], 'weight', 'Yük kalçadan asılır, omurga yüksüz kalır. Derinliği ağrısız açıda tut.'],
   ['leg_press', 'Leg Press', 'machine', ['on_bacak', 'kalca'], ['arka_bacak', 'ic_bacak'], [], 'weight', 'Ayakları platformda yüksek koy, dizler 90°nin altına inmesin, bel pedden kalkmasın.'],
-  ['leg_press_single', 'Leg Press (Tek Bacak)', 'machine', ['on_bacak', 'kalca'], ['arka_bacak'], [], 'weight', 'Skolyozda sağ-sol dengesizliğini görmek için iyi.'],
-  ['leg_extension', 'Leg Extension', 'machine', ['on_bacak'], [], ['knee'], 'weight', 'Kondromalazide tam açıklık patellayı zorlayabilir; son 30-40°lik açıda ve hafif çalış.'],
+  ['leg_press_single', 'Leg Press (Tek Bacak)', 'machine', ['on_bacak', 'kalca'], ['arka_bacak'], [], 'weight', 'Sağ-sol güç farkını görmek ve kapatmak için iyi.'],
+  ['leg_extension', 'Leg Extension', 'machine', ['on_bacak'], [], ['knee'], 'weight', 'Diz kapağı ağrısında tam açıklık zorlayabilir; son 30-40°lik açıda ve hafif çalış.'],
   ['lying_leg_curl', 'Lying Leg Curl', 'machine', ['arka_bacak'], ['baldir'], [], 'weight'],
   ['seated_leg_curl', 'Seated Leg Curl', 'machine', ['arka_bacak'], ['baldir'], [], 'weight'],
   ['bulgarian_split', 'Bulgarian Split Squat', 'dumbbell', ['on_bacak', 'kalca'], ['ic_bacak'], ['knee'], 'weight', undefined, ['leg_press_single', 'step_up']],
@@ -147,10 +154,10 @@ const rows: Row[] = [
 
   // KARIN
   ['plank', 'Plank', 'bodyweight', ['karin'], ['oblik'], [], 'time', 'Ön kollar üzerinde yap; bileğe yük binmez.'],
-  ['side_plank', 'Side Plank', 'bodyweight', ['oblik'], ['karin'], [], 'time', 'Skolyozda zayıf taraf için ek set eklenebilir.'],
+  ['side_plank', 'Side Plank', 'bodyweight', ['oblik'], ['karin'], [], 'time', 'Zayıf taraf için ek set eklenebilir.'],
   ['dead_bug', 'Dead Bug', 'bodyweight', ['karin'], [], [], 'reps', 'Bel yere yapışık; bel sağlığı için temel hareket.'],
   ['bird_dog', 'Bird Dog', 'bodyweight', ['karin', 'bel'], ['kalca'], [], 'reps'],
-  ['pallof_press', 'Pallof Press', 'cable', ['oblik', 'karin'], [], [], 'weight', 'Dönmeye direnç hareketi; skolyoz ve bel için çok uygun.'],
+  ['pallof_press', 'Pallof Press', 'cable', ['oblik', 'karin'], [], [], 'weight', 'Dönmeye direnç hareketi; omurga ve bel sağlığı için çok uygun.'],
   ['cable_crunch', 'Cable Crunch', 'cable', ['karin'], [], ['lumbar'], 'weight', 'Tekrarlı omurga bükülmesi; ağrı varsa dead bug / pallof ile değiştir.', ['dead_bug', 'pallof_press']],
   ['hanging_knee_raise', 'Hanging Knee Raise', 'bodyweight', ['karin'], ['onkol'], [], 'reps'],
   ['ab_wheel', 'Ab Wheel', 'other', ['karin'], ['kanat'], ['lumbar', 'wrist'], 'reps', undefined, ['dead_bug']],
@@ -169,7 +176,7 @@ const rows: Row[] = [
   ['childs_pose', 'Çocuk Pozu', 'bodyweight', ['bel'], ['kanat'], [], 'time'],
   ['mcgill_curl_up', 'McGill Curl-up', 'bodyweight', ['karin'], [], [], 'reps', 'Bel nötr, bir diz bükülü; baş ve omuzlar yalnızca birkaç cm kalkar. Bel dostu karın hareketi.'],
   ['clamshell', 'Clamshell (Lastikle)', 'band', ['kalca'], [], [], 'reps', 'Diz sağlığı için kalça dış rotatorlarını güçlendirir.'],
-  ['tke', 'Terminal Diz Ekstansiyonu (Lastikle)', 'band', ['on_bacak'], [], [], 'reps', 'Kondromalazi rehabilitasyonunda kullanılan, dize düşük yük bindiren son açı ekstansiyonu.'],
+  ['tke', 'Terminal Diz Ekstansiyonu (Lastikle)', 'band', ['on_bacak'], [], [], 'reps', 'Diz rehabilitasyonunda kullanılan, dize düşük yük bindiren son açı ekstansiyonu.'],
 
   // KARDİYO
   ['treadmill_incline', 'Eğimli Yürüyüş (Koşu Bandı)', 'machine', ['baldir'], ['kalca'], [], 'time', 'Diz dostu kardiyo; nabzı not et.'],
@@ -180,6 +187,18 @@ const rows: Row[] = [
   ['swim', 'Yüzme', 'other', ['kanat'], ['gogus', 'on_omuz'], [], 'time']
 ]
 
+
+/** Genel sakatlıklar için ek etiketler. */
+const EXTRA_FLAGS: Partial<Record<Flag, string[]>> = {
+  shoulder: ['bench_press', 'incline_bench', 'smith_incline', 'dips', 'assisted_dips', 'ohp', 'seated_db_press', 'machine_shoulder_press', 'db_fly', 'pull_up', 'lat_pulldown', 'swim', 'front_raise'],
+  elbow: ['skull_crusher', 'close_grip_bench', 'db_overhead_ext', 'overhead_cable_ext', 'barbell_curl', 'preacher_curl', 'chin_up', 'pull_up', 'dips', 'wrist_curl', 'triceps_pushdown_bar'],
+  neck: ['shrug_db', 'deadlift', 'squat', 'smith_squat', 'ohp', 'situp', 'hack_squat', 'standing_calf'],
+  hip: ['squat', 'front_squat', 'goblet_squat', 'smith_squat', 'hack_squat', 'belt_squat', 'leg_press', 'leg_press_single', 'bulgarian_split', 'lunge', 'deadlift', 'hanging_knee_raise'],
+  ankle: ['lunge', 'bulgarian_split', 'step_up', 'standing_calf', 'stair', 'treadmill_incline', 'front_squat'],
+  pressure: ['deadlift', 'squat', 'front_squat', 'hack_squat', 'smith_squat', 'ohp', 'leg_press']
+}
+
 export const BUILTIN_EXERCISES: Exercise[] = rows.map(([id, name, equipment, primary, secondary, flags, kind, note, alt]) => ({
-  id, name, equipment, primary, secondary, flags, kind, note, alt
+  id, name, equipment, primary, secondary, kind, note, alt,
+  flags: [...flags, ...(Object.keys(EXTRA_FLAGS) as Flag[]).filter((f) => EXTRA_FLAGS[f]!.includes(id))]
 }))

@@ -2,6 +2,14 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.5.0', date: '4 Kasım 2026', items: [
+    'Yakılan kalori artık diyetten düşülmüyor: adım ve antrenman ekstra açık sayılıyor (Profil\'den değiştirilebilir)',
+    'Sağlık kısıtları herkese uygun hale geldi; omuz, dirsek, boyun, kalça, ayak bileği ve tansiyon eklendi',
+    'Kısıta takılan hareketlerde ağırlık artışı temkinli; o bölgede ağrı 4/10 ve üstüyse ağırlık %15 düşer',
+    'Günlük kontrole omuz ağrısı ve adım girişi eklendi',
+    'Yedekleme iPhone ve Android\'de paylaşım menüsü veya indirme ile çalışıyor; geri yükleme her dosya seçiciyle açılıyor',
+    'Kayan ve sıkışan butonlar düzeltildi (sekmeler, form alanları, alt çubuk)'
+  ] },
   { v: '0.4.0', date: '4 Kasım 2026', items: [
     'Yakılan kalori: ağırlık 380, kardiyo 500 kcal/saat ve 7500 adım varsayılanı (Profil\'den değişir); antrenman sonunda, beslenmede ve haftalık raporda gösterilir',
     'Günlük harcama artık bazal + günlük yaşam + adım + antrenman olarak hesaplanıyor; istersen hedef her gün gerçek antrenmana göre ayarlanır',
@@ -9,7 +17,7 @@ export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
     'Ağrı günlüğü (diz, bel, bilek) ve hangi hareketten sonra ağrının arttığı analizi',
     'Sağ ve sol ayrı set kaydı, taraf farkı analizi',
     'Deload haftası önerisi ve deload modu',
-    'Isınma, mobilite ve skolyoz/bel bakımı rutinleri',
+    'Isınma, mobilite ve omurga/bel bakımı rutinleri',
     'Nabız bölgeleri ve bölgelere göre kardiyo dakikası',
     'Tarif oluşturucu, öğün şablonları, takviye takibi, karbonhidrat döngüsü',
     'CSV dışa aktarma, Strong\'dan içe aktarma, Kısayollar ile Apple Sağlık verisi',

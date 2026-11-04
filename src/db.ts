@@ -102,11 +102,11 @@ export interface Profile {
 }
 
 export const DEFAULT_PROFILE: Profile = {
-  bodyweight: 80.4,
-  height: 180,
+  bodyweight: 75,
+  height: 175,
   age: 30,
   sex: 'm',
-  restrictions: ['axial', 'lumbar', 'knee', 'wrist'],
+  restrictions: [],
   defaultRest: 120,
   dynamicRest: true,
   barWeight: 20,
@@ -115,10 +115,9 @@ export const DEFAULT_PROFILE: Profile = {
   activity: 1.45,
   goal: 'cut',
   waterTarget: 10,
-  targetWeight: 76,
   weeklyTarget: 4,
   carbCycling: false,
-  supplements: ['Kreatin 5 g', 'D vitamini', 'Omega-3'],
+  supplements: ['Kreatin 5 g'],
   kcalWeights: 380,
   kcalCardio: 500,
   eatBack: false,
@@ -135,6 +134,7 @@ export interface Checkin {
   painKnee?: number
   painBack?: number
   painWrist?: number
+  painShoulder?: number
   steps?: number
   note?: string
 }

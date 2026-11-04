@@ -27,10 +27,13 @@ export function targets(p: Profile, day: DayContext = {}) {
   const steps = stepKcal(day.steps ?? p.steps, p.bodyweight)
   // Ortalama antrenman günü 1 saat ağırlık antrenmanı varsayılır
   const avgTraining = (p.weeklyTarget * p.kcalWeights) / 7
-  const training = p.eatBack && day.burn != null ? day.burn : avgTraining
+  const training = day.burn != null ? day.burn : avgTraining
+  // Gerçek harcama: bazal + günlük yaşam + adım + antrenman
   const tdee = base + steps + training
+  // Varsayılan: yakılan kalori diyete eklenmez, hedef bazal + günlük yaşam üzerinden kurulur; adım ve antrenman ekstra açıktır.
+  const eatBase = p.eatBack ? tdee : base
   const adj = p.goal === 'cut' ? -450 : p.goal === 'bulk' ? 250 : 0
-  let kcal = p.kcalTarget || Math.round((tdee + adj) / 10) * 10
+  let kcal = p.kcalTarget || Math.round((eatBase + adj) / 10) * 10
   // Karbonhidrat döngüsü: antrenman günü +200 kcal karbonhidrat, dinlenme günleri haftalık dengeyi korur
   let cycle = 0
   if (p.carbCycling && !p.eatBack && day.training != null) {
@@ -41,7 +44,8 @@ export function targets(p: Profile, day: DayContext = {}) {
   const protein = p.proteinTarget || Math.round(p.bodyweight * (p.goal === 'cut' ? 2.1 : 1.8))
   const fat = p.fatTarget || Math.round(p.bodyweight * 0.8)
   const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4))
-  return { bmr: Math.round(bmr), base: Math.round(base), steps, training: Math.round(training), tdee: Math.round(tdee), kcal, protein, fat, carbs, cycle }
+  const deficit = Math.round(tdee - kcal)
+  return { bmr: Math.round(bmr), base: Math.round(base), steps, training: Math.round(training), tdee: Math.round(tdee), kcal, protein, fat, carbs, cycle, deficit, weeklyKg: Math.round((deficit * 7 / 7700) * 100) / 100 }
 }
 
 export function portion(food: Food, grams: number) {

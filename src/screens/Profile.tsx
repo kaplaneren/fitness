@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, exportBackup, getProfile, importBackup, setKV, type Profile } from '../db'
 import { FLAG_INFO, type Flag } from '../data/exercises'
 import { useExercises, useProfile } from '../hooks'
-import { diaryCsv, importStrong, shareFile, workoutsCsv } from '../lib/csv'
+import { diaryCsv, importStrong, saveFile, shareFile, workoutsCsv } from '../lib/csv'
 import { fmtDate } from '../lib/calc'
 import { targets } from '../lib/nutrition'
 import VersionFooter from '../components/VersionFooter'
@@ -32,20 +32,23 @@ export default function ProfileScreen() {
   const update = async (patch: Partial<Profile>) => setKV('profile', { ...(await getProfile()), ...patch })
   const toggleFlag = (f: Flag) => update({ restrictions: profile.restrictions.includes(f) ? profile.restrictions.filter((x) => x !== f) : [...profile.restrictions, f] })
 
+  // Yedek dosyası önceden hazırlanır: iOS paylaşım sayfası dokunuştan hemen sonra açılmalı, araya veritabanı okuması girerse engellenir.
+  const [ready, setReady] = useState<File | null>(null)
+  const dataStamp = useLiveQuery(async () => `${await db.workouts.count()}-${await db.diary.count()}-${await db.measurements.count()}-${await db.checkins.count()}-${await db.routines.count()}`, [])
+  useEffect(() => {
+    let alive = true
+    exportBackup().then((data) => {
+      const name = `form-yedek-${new Date().toISOString().slice(0, 10)}.json`
+      if (alive) setReady(new File([JSON.stringify(data)], name, { type: 'application/json' }))
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [dataStamp])
   const doExport = async () => {
-    const data = await exportBackup()
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
-    const name = `form-yedek-${new Date().toISOString().slice(0, 10)}.json`
-    const file = new File([blob], name, { type: 'application/json' })
-    try {
-      if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: name })
-      else {
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(blob); a.download = name; a.click()
-        setTimeout(() => URL.revokeObjectURL(a.href), 5000)
-      }
-      await update({ lastBackup: Date.now() })
-    } catch { /* paylaşım iptal edildi */ }
+    const file = ready ?? new File([JSON.stringify(await exportBackup())], `form-yedek-${new Date().toISOString().slice(0, 10)}.json`, { type: 'application/json' })
+    const r = await saveFile(file)
+    if (r === 'cancel') return
+    await update({ lastBackup: Date.now() })
+    if (r === 'downloaded') notify(`Yedek "${file.name}" olarak indirildi. iPhone'da Dosyalar → İndirilenler, Android'de Dosyalar → İndirilenler klasöründe bulursun; Drive veya iCloud'a taşıman önerilir.`)
   }
   const doImport = async (f: File) => {
     try {
@@ -68,7 +71,7 @@ export default function ProfileScreen() {
           <Num id="p-h" label="Boy (cm)" value={profile.height} onChange={(v) => update({ height: v ?? 0 })} />
           <Num id="p-age" label="Yaş" value={profile.age} onChange={(v) => update({ age: v ?? 0 })} />
           <Num id="p-tw" label="Hedef kilo (kg)" value={profile.targetWeight} step="0.1" onChange={(v) => update({ targetWeight: v })} />
-          <Num id="p-wt" label="Haftalık antrenman hedefi" value={profile.weeklyTarget} onChange={(v) => update({ weeklyTarget: v ?? 3 })} />
+          <Num id="p-wt" label="Gün/hafta" value={profile.weeklyTarget} onChange={(v) => update({ weeklyTarget: v ?? 3 })} />
         </div>
         <div className="seg">
           <button className={profile.sex === 'm' ? 'on' : ''} onClick={() => update({ sex: 'm' })}>Erkek</button>
@@ -81,18 +84,19 @@ export default function ProfileScreen() {
         <div className="seg">
           <button className={profile.goal === 'cut' ? 'on' : ''} onClick={() => update({ goal: 'cut' })}>Yağ yakımı</button>
           <button className={profile.goal === 'maintain' ? 'on' : ''} onClick={() => update({ goal: 'maintain' })}>Koruma</button>
-          <button className={profile.goal === 'bulk' ? 'on' : ''} onClick={() => update({ goal: 'bulk' })}>Kas kazanımı</button>
+          <button className={profile.goal === 'bulk' ? 'on' : ''} onClick={() => update({ goal: 'bulk' })}>Kas</button>
         </div>
         <div className="fields">
           <Num id="p-steps" label="Günlük adım" value={profile.steps} onChange={(v) => update({ steps: v ?? 0 })} />
-          <Num id="p-kw" label="Ağırlık (kcal/saat)" value={profile.kcalWeights} onChange={(v) => update({ kcalWeights: v ?? 0 })} />
-          <Num id="p-kc" label="Kardiyo (kcal/saat)" value={profile.kcalCardio} onChange={(v) => update({ kcalCardio: v ?? 0 })} />
+          <Num id="p-kw" label="Ağırlık kcal/sa" value={profile.kcalWeights} onChange={(v) => update({ kcalWeights: v ?? 0 })} />
+          <Num id="p-kc" label="Kardiyo kcal/sa" value={profile.kcalCardio} onChange={(v) => update({ kcalCardio: v ?? 0 })} />
         </div>
-        <p className="small">Bazal metabolizma <b>{t.bmr}</b> + günlük yaşam <b>{t.base - t.bmr}</b> + {profile.steps.toLocaleString('tr-TR')} adım <b>{t.steps}</b> + antrenman ortalaması <b>{t.training}</b> = günlük harcama ≈ <b>{t.tdee}</b> kcal → hedef <b>{t.kcal}</b> kcal, <b>{t.protein}</b> g protein, <b>{t.carbs}</b> g karbonhidrat, <b>{t.fat}</b> g yağ.</p>
+        <p className="small">Diyet hedefi: bazal metabolizma <b>{t.bmr}</b> + günlük yaşam <b>{t.base - t.bmr}</b>{profile.eatBack ? <> + adım <b>{t.steps}</b> + antrenman ortalaması <b>{t.training}</b></> : ''} {profile.goal === 'cut' ? '− 450' : profile.goal === 'bulk' ? '+ 250' : ''} → <b>{t.kcal}</b> kcal, <b>{t.protein}</b> g protein, <b>{t.carbs}</b> g karbonhidrat, <b>{t.fat}</b> g yağ.</p>
+        {!profile.eatBack && <p className="small">Adım ({t.steps} kcal) ve antrenman (ortalama {t.training} kcal) diyetten düşülmez, ekstra açık olur. Toplam harcama ≈ {t.tdee} kcal, günlük açık ≈ <b>{t.deficit}</b> kcal, haftada ≈ <b>{t.weeklyKg.toLocaleString('tr-TR')} kg</b>.</p>}
         <p className="muted tiny">Adım kalorisi kilona göre hesaplanır (adım başına ≈ {(profile.bodyweight * 0.00045).toFixed(3)} kcal). Antrenman ortalaması: haftada {profile.weeklyTarget} × 1 saat × {profile.kcalWeights} kcal ÷ 7.</p>
         <label className="toggle">
           <input type="checkbox" checked={profile.eatBack} onChange={() => update({ eatBack: !profile.eatBack })} />
-          <span>Hedefi her gün gerçek antrenmana göre ayarla (yakılanı o günün hedefine ekle, ortalamayı kullanma)</span>
+          <span>Yakılan kaloriyi diyet hedefine ekle (kapalıyken adım ve antrenman ekstra açık sayılır)</span>
         </label>
         <label className="toggle">
           <input type="checkbox" checked={profile.carbCycling} disabled={profile.eatBack} onChange={() => update({ carbCycling: !profile.carbCycling })} />
@@ -121,7 +125,7 @@ export default function ProfileScreen() {
 
       <div className="card">
         <h3>Sağlık kısıtları</h3>
-        <p className="muted small">Açık olan kısıtlara takılan hareketler ⚠ ile işaretlenir, program sihirbazı onları seçmez ve antrenmanda güvenli alternatif önerilir.</p>
+        <p className="muted small">Sende olanları işaretle. Bu kısıtlara takılan hareketler ⚠ ile gösterilir, program sihirbazı onları seçmez, antrenmanda güvenli alternatif önerilir ve bu hareketlerde ağırlık artışı daha temkinli yapılır. Günlük kontrolde o bölgede ağrı 4/10 ve üstüyse ağırlık %15 düşürülür.</p>
         {(Object.keys(FLAG_INFO) as Flag[]).map((f) => (
           <label key={f} className="toggle">
             <input type="checkbox" checked={profile.restrictions.includes(f)} onChange={() => toggleFlag(f)} />
@@ -133,7 +137,7 @@ export default function ProfileScreen() {
       <div className="card">
         <h3>Antrenman ayarları</h3>
         <div className="fields">
-          <Num id="p-rest" label="Varsayılan dinlenme (sn)" value={profile.defaultRest} onChange={(v) => update({ defaultRest: v ?? 90 })} />
+          <Num id="p-rest" label="Dinlenme (sn)" value={profile.defaultRest} onChange={(v) => update({ defaultRest: v ?? 90 })} />
           <Num id="p-bar" label="Bar ağırlığı (kg)" value={profile.barWeight} onChange={(v) => update({ barWeight: v ?? 20 })} />
         </div>
         <label className="toggle">
@@ -153,28 +157,28 @@ export default function ProfileScreen() {
 
       <div className="card">
         <h3>Veri ve yedek</h3>
-        <p className="small">Tüm verin yalnızca bu telefonda ({count} antrenman). Uygulamayı silersen veya Safari verilerini temizlersen kaybolur; düzenli yedek al ve dosyayı iCloud Drive'a kaydet.</p>
+        <p className="small">Tüm verin yalnızca bu telefonda ({count} antrenman). Uygulamayı silersen veya tarayıcı verilerini temizlersen kaybolur. Düzenli yedek al: iPhone'da paylaşım menüsünden \"Dosyalar'a Kaydet\" (iCloud Drive), Android'de Drive veya Dosyalar'ı seç. Geri yüklemek için yeni telefonda Yedekten geri yükle'ye dokunup bu .json dosyasını seç.</p>
         <p className={`small ${backupAge == null || backupAge > 7 ? 'warn' : 'muted'}`}>
           {profile.lastBackup ? `Son yedek: ${fmtDate(profile.lastBackup)}${backupAge! > 7 ? ` (${backupAge} gün önce)` : ''}` : 'Henüz yedek alınmadı.'}
         </p>
-        {persisted === false && <p className="muted tiny">Kalıcı depolama için uygulamayı Safari'de Paylaş → Ana Ekrana Ekle ile yükle.</p>}
+        {persisted === false && <p className="muted tiny">Kalıcı depolama için uygulamayı ana ekrana ekle: iPhone'da Safari → Paylaş → Ana Ekrana Ekle, Android'de Chrome → ⋮ → Uygulamayı yükle.</p>}
         <div className="row">
           <button className="btn primary" onClick={doExport}>Yedek al</button>
           <button className="btn" onClick={() => fileRef.current?.click()}>Yedekten geri yükle</button>
         </div>
-        <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
+        <input ref={fileRef} type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
       </div>
 
       <div className="card">
         <h3>Dışa ve içe aktarma</h3>
         <p className="muted small">CSV dosyasını Excel veya Numbers'ta açabilirsin.</p>
         <div className="row">
-          <button className="btn grow" onClick={async () => { try { await shareFile(`form-antrenman-${new Date().toISOString().slice(0, 10)}.csv`, await workoutsCsv(map)) } catch { /* iptal */ } }}>Antrenmanlar CSV</button>
+          <button className="btn grow" onClick={async () => { try { await shareFile(`form-antrenman-${new Date().toISOString().slice(0, 10)}.csv`, await workoutsCsv(map)) } catch { /* iptal */ } }}>Antrenman CSV</button>
           <button className="btn grow" onClick={async () => { try { await shareFile(`form-beslenme-${new Date().toISOString().slice(0, 10)}.csv`, await diaryCsv()) } catch { /* iptal */ } }}>Beslenme CSV</button>
         </div>
         <button className="btn" onClick={() => strongRef.current?.click()}>Strong'dan içe aktar</button>
         <p className="muted tiny">Strong → Profil → Ayarlar → Verileri dışa aktar ile aldığın CSV'yi seç. Aynı antrenman iki kez eklenmez, eşleşmeyen hareketler özel hareket olarak eklenir.</p>
-        <input ref={strongRef} type="file" accept=".csv,text/csv" hidden onChange={async (e) => {
+        <input ref={strongRef} type="file" accept=".csv,text/csv,text/comma-separated-values,text/plain" hidden onChange={async (e) => {
           const f = e.target.files?.[0]; e.target.value = ''
           if (!f) return
           try {
@@ -193,7 +197,7 @@ export default function ProfileScreen() {
           <li><b>URL'leri Aç</b> eylemini ekle. Ana ekrandaki Form'u açması için adres, uygulamayı yüklediğin adresle aynı olmalı.</li>
           <li>Otomasyon → Günün saati (ör. 09:00) → bu kısayolu çalıştır.</li>
         </ol>
-        <p className="muted tiny">Kilo ölçümlere, adım ve uyku günlük kontrole yazılır; adım kalorisi gerçek adımınla hesaplanır.</p>
+        <p className="muted tiny">Kilo ölçümlere, adım ve uyku günlük kontrole yazılır; adım kalorisi gerçek adımınla hesaplanır. Android'de tarayıcı uygulamaları Health Connect'e erişemez; adımı ana sayfadaki günlük kontrolden elle girebilirsin, girmezsen Profil'deki ortalama adım kullanılır.</p>
       </div>
 
       <VersionFooter />

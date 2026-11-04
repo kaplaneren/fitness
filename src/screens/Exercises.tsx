@@ -109,7 +109,7 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
 
         {hit.length > 0 && (
           <div className="card warn-card">
-            {hit.map((f) => <div key={f} className="small"><b className="warn">⚠</b> {FLAG_INFO[f].label}</div>)}
+            {hit.map((f) => <div key={f} className="small"><b className="warn">⚠</b> <b>{FLAG_INFO[f].label}.</b> {FLAG_INFO[f].tip}</div>)}
             {ex.alt?.length ? <div className="small">Daha güvenli: {ex.alt.map((a) => map.get(a)?.name ?? a).join(', ')}</div> : null}
           </div>
         )}

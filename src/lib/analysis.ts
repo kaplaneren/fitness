@@ -148,7 +148,7 @@ export function strengthProfile(workouts: Workout[], bodyweight: number) {
     if (total - weak.score > 12) notes.push(`Zayıf halka ${weak.name}: ortalamanın ${Math.round(total - weak.score)} puan altında. Programda bu bölgeye öncelik ver.`)
     const g = (n: string) => regions.find((r) => r.name === n)?.score ?? 0
     const push = (g('Göğüs') + g('Omuz')) / ((g('Göğüs') ? 1 : 0) + (g('Omuz') ? 1 : 0) || 1)
-    if (g('Sırt') && push && push - g('Sırt') > 15) notes.push('İtiş gücün çekiş gücünden belirgin yüksek. Postür ve skolyoz için sırt hareketlerine ağırlık ver.')
+    if (g('Sırt') && push && push - g('Sırt') > 15) notes.push('İtiş gücün çekiş gücünden belirgin yüksek. Postür ve omuz sağlığı için sırt hareketlerine ağırlık ver.')
     const upper = (g('Göğüs') + g('Sırt') + g('Omuz')) / 3, lower = (g('Ön bacak') + g('Kalça ve arka bacak')) / 2
     if (g('Ön bacak') && g('Kalça ve arka bacak') && Math.abs(upper - lower) > 15) notes.push(`${upper > lower ? 'Üst vücut alt vücuttan' : 'Alt vücut üst vücuttan'} belirgin güçlü.`)
     if (!notes.length) notes.push('Bölgeler arasında güç dengesi iyi; belirgin bir zayıf halka yok.')

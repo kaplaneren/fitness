@@ -101,7 +101,7 @@ export function WeeklyReport() {
       <div className="card">
         <h3>Denge (son 4 hafta)</h3>
         <BalanceBar a={bal.pull} b={bal.push} la="Çekiş" lb="İtiş" />
-        <p className="muted tiny">{bal.pull + bal.push === 0 ? 'Veri yok.' : bal.pull >= bal.push ? 'Çekiş hacmi itişten fazla; postür ve skolyoz için doğru yönde.' : 'İtiş hacmi çekişten fazla. Skolyoz ve postür için çekiş setlerini en az itiş kadar tut (ör. face pull, row ekle).'}</p>
+        <p className="muted tiny">{bal.pull + bal.push === 0 ? 'Veri yok.' : bal.pull >= bal.push ? 'Çekiş hacmi itişten fazla; postür ve omuz sağlığı için doğru yönde.' : 'İtiş hacmi çekişten fazla. Postür ve omuz sağlığı için çekiş setlerini en az itiş kadar tut (ör. face pull, row ekle).'}</p>
         <BalanceBar a={bal.upper} b={bal.lower} la="Üst vücut" lb="Alt vücut" />
       </div>
 

@@ -47,15 +47,20 @@ export function CheckinCard() {
       ) : !open && <p className="muted small">30 saniyelik kontrol: uyku, enerji, kas ağrısı ve eklem ağrısı. Hazır olma skoruna göre bugünkü ağırlık önerisi ayarlanır.</p>}
       {open && (
         <div className="stack" style={{ gap: 10 }}>
-          <label className="field" htmlFor="ci-sleep">Uyku (saat)
-            <input id="ci-sleep" className="input" style={{ marginBottom: 0 }} type="number" inputMode="decimal" step="0.5" value={c.sleepHours ?? ''} onChange={(e) => set('sleepHours', e.target.value === '' ? undefined : parseFloat(e.target.value))} />
-          </label>
+          <div className="fields">
+            <label className="field" htmlFor="ci-sleep">Uyku (saat)
+              <input id="ci-sleep" type="number" inputMode="decimal" step="0.5" value={c.sleepHours ?? ''} onChange={(e) => set('sleepHours', e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+            </label>
+            <label className="field" htmlFor="ci-steps">Adım (dün/bugün)
+              <input id="ci-steps" type="number" inputMode="numeric" value={c.steps ?? ''} onChange={(e) => set('steps', e.target.value === '' ? undefined : parseInt(e.target.value))} />
+            </label>
+          </div>
           <Scale label="Uyku kalitesi" k="sleepQuality" c={c} set={set} hint={['kötü', 'çok iyi']} />
           <Scale label="Enerji" k="energy" c={c} set={set} hint={['bitkin', 'zinde']} />
           <Scale label="Kas ağrısı" k="soreness" c={c} set={set} hint={['yok', 'çok']} />
           <Scale label="Stres" k="stress" c={c} set={set} hint={['yok', 'çok']} />
           <p className="eyebrow" style={{ margin: '4px 0 0' }}>Eklem ağrısı (0 yok, 10 çok şiddetli)</p>
-          {(['painKnee', 'painBack', 'painWrist'] as Joint[]).map((j) => (
+          {(Object.keys(JOINT_NAMES) as Joint[]).map((j) => (
             <Scale key={j} label={JOINT_NAMES[j]} k={j} c={c} set={set} lo={0} hi={10} />
           ))}
         </div>
@@ -163,8 +168,8 @@ export function HealthView() {
         <h3>Nabız bölgeleri</h3>
         <p className="muted tiny">{profile.age} yaş için tahmini maksimum nabız {z.max} (Tanaka formülü). Antrenman sonunda ortalama nabzı girersen kardiyo dakikaları bölgelere ayrılır.</p>
         {z.zones.map((zz) => (
-          <div key={zz.n} className="vol-row">
-            <span>B{zz.n} {zz.name}</span>
+          <div key={zz.n} className="vol-row zone">
+            <span>B{zz.n} · {zz.name}</span>
             <div className="bar-track"><div className="bar-fill" style={{ width: `${totalCardio ? (cm[zz.n] / totalCardio) * 100 : 0}%`, background: zz.n <= 2 ? 'var(--good)' : zz.n === 3 ? 'var(--warn)' : 'var(--danger)' }} /></div>
             <span className="mono tiny" style={{ textAlign: 'right' }}>{zz.lo}-{zz.hi}</span>
           </div>

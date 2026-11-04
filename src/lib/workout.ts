@@ -1,5 +1,5 @@
 import { db, getKV, getProfile, setKV, type Routine, type SetEntry, type Workout, type WorkoutExercise } from '../db'
-import { BUILTIN_EXERCISES } from '../data/exercises'
+import { BUILTIN_EXERCISES, FLAG_INFO } from '../data/exercises'
 import { parseRange, recommend } from './progression'
 import { readiness } from './health'
 import { todayKey } from './nutrition'
@@ -45,6 +45,27 @@ export async function makeExercise(exerciseId: string, setCount = 3, restSec?: n
       if (prev) adv.weight = prev
       adv.text = `Hazır olma skorun düşük (${tm.score}), bugün artış yok; geçen haftanın ağırlığıyla kal.`
       adv.tone = 'same'
+    }
+  }
+  // Sağlık kısıtına takılan hareketlerde temkinli ilerleme
+  const hit = (ex?.flags ?? []).filter((f) => profile.restrictions.includes(f))
+  if (adv && hit.length) {
+    const step = ex?.equipment === 'dumbbell' ? 1 : 2.5
+    const prev = work.reduce((m, s) => Math.max(m, s.weight ?? 0), 0)
+    const c = await db.checkins.get(todayKey())
+    const pain = Math.max(0, ...hit.map((f) => (f === 'knee' ? c?.painKnee : f === 'lumbar' || f === 'axial' ? c?.painBack : f === 'wrist' || f === 'elbow' ? c?.painWrist : f === 'shoulder' ? c?.painShoulder : 0) ?? 0))
+    const names = hit.map((f) => FLAG_INFO[f].short.toLowerCase()).join(', ')
+    if (pain >= 4 && prev) {
+      adv.weight = r25(prev * 0.85, step)
+      adv.tone = 'down'
+      adv.text = `Bugün ${names} ağrın ${pain}/10: ağırlık %15 düşürüldü. Ağrı artarsa hareketi alternatifiyle değiştir.`
+    } else if (adv.tone === 'up' && prev && adv.weight != null) {
+      adv.weight = Math.min(adv.weight, prev + step)
+      adv.text = `${adv.text} Kısıtın var (${names}): artış en küçük adımla, her sette 2-3 tekrar pay bırak.`
+    } else if (adv.tone === 'new') {
+      adv.text = `Kısıtın var (${names}): hafif başla, 12-15 tekrar yapabileceğin ağırlık seç. ${FLAG_INFO[hit[0]].tip}`
+    } else {
+      adv.text = `${adv.text} ${FLAG_INFO[hit[0]].tip}`
     }
   }
   const n = adv?.sets ?? setCount
@@ -133,7 +154,7 @@ export const SAMPLE_ROUTINES: Omit<Routine, 'updatedAt'>[] = [
   ] }
 ]
 
-/** Isınma, mobilite ve skolyoz/bel bakımı rutinleri. Fizyoterapistinin verdiği egzersizler önceliklidir. */
+/** Isınma, mobilite ve omurga/bel bakımı rutinleri. Fizyoterapistinin verdiği egzersizler önceliklidir. */
 export const MOBILITY_ROUTINES: Omit<Routine, 'updatedAt'>[] = [
   { name: 'Isınma: Üst vücut', folder: 'Isınma ve mobilite', exercises: [
     { exerciseId: 'cat_cow', sets: 1, reps: '10', restSec: 0 },
@@ -150,7 +171,7 @@ export const MOBILITY_ROUTINES: Omit<Routine, 'updatedAt'>[] = [
     { exerciseId: 'tke', sets: 2, reps: '15', restSec: 20 },
     { exerciseId: 'bird_dog', sets: 1, reps: '8/taraf', restSec: 0 }
   ] },
-  { name: 'Skolyoz ve bel bakımı', folder: 'Isınma ve mobilite', exercises: [
+  { name: 'Omurga ve bel bakımı', folder: 'Isınma ve mobilite', exercises: [
     { exerciseId: 'cat_cow', sets: 1, reps: '10', restSec: 0 },
     { exerciseId: 'mcgill_curl_up', sets: 3, reps: '8', restSec: 30 },
     { exerciseId: 'side_plank', sets: 2, reps: '30 sn/taraf', restSec: 30 },

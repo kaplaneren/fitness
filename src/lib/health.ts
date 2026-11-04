@@ -13,7 +13,7 @@ export function readiness(c?: Checkin | null) {
   if (c.energy != null) parts.push({ w: 2, v: (c.energy - 1) / 4 })
   if (c.soreness != null) parts.push({ w: 1.5, v: (5 - c.soreness) / 4 })
   if (c.stress != null) parts.push({ w: 1, v: (5 - c.stress) / 4 })
-  const pain = Math.max(c.painKnee ?? 0, c.painBack ?? 0, c.painWrist ?? 0)
+  const pain = Math.max(c.painKnee ?? 0, c.painBack ?? 0, c.painWrist ?? 0, c.painShoulder ?? 0)
   if (!parts.length && !pain) return null
   let score = parts.length ? (parts.reduce((a, p) => a + p.w * p.v, 0) / parts.reduce((a, p) => a + p.w, 0)) * 100 : 80
   if (pain >= 3) score -= (pain - 2) * 6
@@ -27,8 +27,8 @@ export function readiness(c?: Checkin | null) {
 
 /* ---------- Ağrı analizi ---------- */
 // Her hareket için: o hareketin yapıldığı günün ertesi günkü ağrı ortalaması ile genel ortalama farkı.
-export type Joint = 'painKnee' | 'painBack' | 'painWrist'
-export const JOINT_NAMES: Record<Joint, string> = { painKnee: 'Diz', painBack: 'Bel', painWrist: 'Bilek' }
+export type Joint = 'painKnee' | 'painBack' | 'painWrist' | 'painShoulder'
+export const JOINT_NAMES: Record<Joint, string> = { painKnee: 'Diz', painBack: 'Bel', painShoulder: 'Omuz', painWrist: 'Bilek' }
 
 export function painLinks(checkins: Checkin[], workouts: Workout[], exMap: Map<string, Exercise>, joint: Joint) {
   const byDate = new Map(checkins.filter((c) => c[joint] != null).map((c) => [c.date, c[joint] as number]))
@@ -57,10 +57,10 @@ export function hrZones(age: number) {
     max,
     zones: [
       { n: 1, name: 'Toparlanma', lo: z[0], hi: z[1] },
-      { n: 2, name: 'Yağ yakımı / aerobik taban', lo: z[1], hi: z[2] },
+      { n: 2, name: 'Aerobik', lo: z[1], hi: z[2] },
       { n: 3, name: 'Tempo', lo: z[2], hi: z[3] },
       { n: 4, name: 'Eşik', lo: z[3], hi: z[4] },
-      { n: 5, name: 'Maksimum', lo: z[4], hi: z[5] }
+      { n: 5, name: 'Maks.', lo: z[4], hi: z[5] }
     ]
   }
 }

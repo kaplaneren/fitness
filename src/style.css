@@ -245,3 +245,17 @@ textarea.input { min-height: 72px; resize: vertical; }
 .week-strip i { width: 34px; height: 34px; border-radius: 10px; background: var(--surface-2); display: grid; place-items: center; font-style: normal; font-size: 14px; color: var(--ink-2); }
 .week-strip i.on { background: var(--accent); color: var(--accent-ink); }
 .week-strip i.today { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* 0.4.1 hizalama düzeltmeleri */
+.chips, .seg, .date-nav, .stat-row, .row, .row-between, .card-title { flex-shrink: 0; }
+.sheet-body > * { flex-shrink: 0; }
+.fields { align-items: end; }
+.fields > label { min-width: 0; }
+.input, .field input, .field select, textarea { font-size: 16px; }
+.seg button { padding: 0 4px; line-height: 1.15; }
+.vol-row > span:last-child { white-space: nowrap; }
+.vol-row.zone { grid-template-columns: 104px 1fr 62px; }
+.main.with-resume { padding-bottom: calc(160px + var(--safe-b)); }
+.btn { white-space: nowrap; }
+.row > .btn.grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.water { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; } .glass { width: auto; aspect-ratio: 26 / 32; height: auto; }

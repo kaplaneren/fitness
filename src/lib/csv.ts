@@ -24,13 +24,27 @@ export async function diaryCsv() {
   return rows.map((r) => r.map(q).join(',')).join('\n')
 }
 
-export async function shareFile(name: string, content: string, type = 'text/csv') {
-  const blob = new Blob(['﻿' + content], { type })
-  const file = new File([blob], name, { type })
-  if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: name }); return }
+/**
+ * Dosyayı iOS ve Android'de kaydettirir: önce paylaşım sayfası (iOS: Dosyalar'a kaydet / iCloud Drive,
+ * Android: Drive, Dosyalar), olmazsa doğrudan indirme. Kullanıcı iptal ederse 'cancel' döner.
+ */
+export async function saveFile(file: File): Promise<'shared' | 'downloaded' | 'cancel'> {
+  try {
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: file.name }); return 'shared' }
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') return 'cancel'
+    // NotAllowedError / TypeError: paylaşım izni yok, indirmeye geç
+  }
+  const url = URL.createObjectURL(file)
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob); a.download = name; a.click()
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000)
+  a.href = url; a.download = file.name; a.rel = 'noopener'
+  document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
+  return 'downloaded'
+}
+
+export async function shareFile(name: string, content: string, type = 'text/csv') {
+  return saveFile(new File(['\ufeff' + content], name, { type }))
 }
 
 /* ---------- Strong içe aktarma ---------- */

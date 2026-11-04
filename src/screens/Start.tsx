@@ -66,7 +66,7 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
       {!folders.has('Isınma ve mobilite') && (
         <div className="card">
           <h3>Isınma ve mobilite rutinleri</h3>
-          <p className="muted small">Üst ve alt vücut ısınması ile skolyoz ve bel bakımı rutini (McGill curl-up, side plank, bird dog, asılma). Bel ve dize yük bindirmez.</p>
+          <p className="muted small">Üst ve alt vücut ısınması ile omurga ve bel bakımı rutini (McGill curl-up, side plank, bird dog, asılma). Bel ve dize yük bindirmez.</p>
           <button className="btn sm" onClick={() => db.routines.bulkAdd(MOBILITY_ROUTINES.map((r) => ({ ...r, updatedAt: Date.now() })))}>Rutinleri ekle</button>
         </div>
       )}
