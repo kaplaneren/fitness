@@ -2,6 +2,13 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.7.0', date: '4 Kasım 2026', items: [
+    'Alt menüde yeni Geçmiş sekmesi: tüm antrenmanlar aylara göre listelenir',
+    'Arama (antrenman, hareket, not), dönem filtresi ve toplam süre/hacim özeti',
+    'Her antrenman için menü: aç, tekrarla, paylaş, sil',
+    'Seç modu ile birden fazla antrenmanı birlikte paylaşma veya silme',
+    'Yeni logo'
+  ] },
   { v: '0.6.0', date: '4 Kasım 2026', items: [
     'Program sihirbazı ısınma ve kardiyo süresini ve hareketini soruyor; ısınma başa, kardiyo sona ekleniyor',
     'Isınma ve kardiyo süresi toplam antrenman süresinden düşülüyor, ağırlık hareketleri kalan süreye sığacak kadar seçiliyor',

@@ -8,15 +8,17 @@ import StartScreen from './screens/Start'
 import NutritionScreen from './screens/Nutrition'
 import ProgressScreen from './screens/Progress'
 import ProfileScreen from './screens/Profile'
+import HistoryScreen from './screens/History'
 import ActiveWorkout from './screens/ActiveWorkout'
 import { WorkoutDetail } from './screens/History'
 import { db, type Workout } from './db'
 
-export type Tab = 'home' | 'workout' | 'food' | 'progress' | 'profile'
+export type Tab = 'home' | 'workout' | 'history' | 'food' | 'progress' | 'profile'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'home', label: 'Özet', icon: 'M4 11 12 4l8 7v9h-5v-6H9v6H4z' },
   { id: 'workout', label: 'Antrenman', icon: 'M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12' },
+  { id: 'history', label: 'Geçmiş', icon: 'M12 7v5l3 2M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4h4' },
   { id: 'food', label: 'Beslenme', icon: 'M7 3v8a2 2 0 0 0 4 0V3M9 11v10M17 21V3c-2 1-3 4-3 7h3' },
   { id: 'progress', label: 'İlerleme', icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
   { id: 'profile', label: 'Profil', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0' }
@@ -45,6 +47,7 @@ export default function App() {
       <main className={`main ${workout && !workoutOpen ? 'with-resume' : ''}`}>
         {tab === 'home' && <Dashboard go={setTab} onStarted={() => setWorkoutOpen(true)} />}
         {tab === 'workout' && <StartScreen onStarted={() => setWorkoutOpen(true)} />}
+        {tab === 'history' && <HistoryScreen onStarted={() => setWorkoutOpen(true)} />}
         {tab === 'food' && <NutritionScreen />}
         {tab === 'progress' && <ProgressScreen />}
         {tab === 'profile' && <ProfileScreen />}

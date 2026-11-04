@@ -8,6 +8,40 @@ import { e1rm, fmtDate, fmtDuration, fmtKg, workoutSetCount, workoutVolume } fro
 import { DAY, analyzeWorkout, bestE1rmByExercise, trend } from '../lib/analysis'
 import LineChart from '../components/LineChart'
 import { ExerciseDetail } from './Exercises'
+import { startWorkout } from '../lib/workout'
+import type { Exercise } from '../data/exercises'
+import VersionFooter from '../components/VersionFooter'
+
+/** Antrenmanın paylaşılabilir metin özeti. */
+export function workoutText(w: Workout, map: Map<string, Exercise>) {
+  const lines = [`🏋️ ${w.name} · ${fmtDate(w.startedAt, true)}`, `⏱ ${fmtDuration((w.endedAt ?? w.startedAt) - w.startedAt)} · ${fmtKg(workoutVolume(w))} kg hacim · ${workoutSetCount(w)} set`, '']
+  for (const e of w.exercises) {
+    const sets = e.sets.filter((x) => x.type !== 'warmup').map((x) => (x.seconds != null && x.reps == null ? `${Math.round(x.seconds / 60)} dk` : `${x.weight ? fmtKg(x.weight) + '×' : ''}${x.reps ?? ''}${x.side ? (x.side === 'L' ? ' sol' : ' sağ') : ''}`))
+    lines.push(`• ${map.get(e.exerciseId)?.name ?? e.exerciseId}: ${sets.join(', ')}`)
+  }
+  if (w.note) lines.push('', `Not: ${w.note}`)
+  lines.push('', 'Fitness uygulamasıyla kaydedildi')
+  return lines.join('\n')
+}
+
+export async function shareText(text: string, title: string) {
+  try {
+    if (navigator.share) { await navigator.share({ title, text }); return }
+  } catch (e) { if ((e as Error).name === 'AbortError') return }
+  try { await navigator.clipboard.writeText(text); notify('Antrenman özeti panoya kopyalandı; WhatsApp veya mesaja yapıştırabilirsin.') }
+  catch { notify(text, 'Kopyalayıp paylaş') }
+}
+
+/** Geçmiş bir antrenmanı aynı hareket ve set sayılarıyla yeniden başlatır. */
+export async function repeatWorkout(w: Workout) {
+  if (await db.kv.get('active')) { if (!await ask('Devam eden bir antrenman var. Onu silip bunu başlatayım mı?', { danger: true, ok: 'Başlat' })) return false }
+  await startWorkout({ name: w.name, routineId: w.routineId, updatedAt: 0, exercises: w.exercises.map((e) => {
+    const work = e.sets.filter((x) => x.type !== 'warmup')
+    const mins = work.find((x) => x.seconds && x.reps == null)?.seconds
+    return { exerciseId: e.exerciseId, sets: Math.max(1, work.length), reps: e.target ?? (mins ? `${Math.round(mins / 60)} dk` : '8-12'), restSec: e.restSec, superset: e.superset }
+  }) } as never)
+  return true
+}
 
 function HistoryCharts() {
   const workouts = useLiveQuery(() => db.workouts.orderBy('startedAt').toArray(), []) ?? []
@@ -48,51 +82,127 @@ function HistoryCharts() {
   )
 }
 
-export function HistoryList() {
+type Period = 'all' | '30' | '90' | 'year'
+
+export default function HistoryScreen({ onStarted }: { onStarted?: () => void }) {
   const workouts = useLiveQuery(() => db.workouts.orderBy('startedAt').reverse().toArray(), []) ?? []
+  const { map } = useExercises()
   const [open, setOpen] = useState<Workout | null>(null)
+  const [q, setQ] = useState('')
+  const [period, setPeriod] = useState<Period>('all')
+  const [selecting, setSelecting] = useState(false)
+  const [sel, setSel] = useState<Set<number>>(new Set())
+  const [charts, setCharts] = useState(false)
+  const since = period === 'all' ? 0 : period === 'year' ? new Date(new Date().getFullYear(), 0, 1).getTime() : Date.now() - +period * DAY
+  const words = q.trim().toLocaleLowerCase('tr').split(/\s+/).filter(Boolean)
+  const list = workouts.filter((w) => w.startedAt >= since && words.every((x) => `${w.name} ${w.note ?? ''} ${w.exercises.map((e) => map.get(e.exerciseId)?.name ?? '').join(' ')}`.toLocaleLowerCase('tr').includes(x)))
   const byMonth = new Map<string, Workout[]>()
-  for (const w of workouts) {
+  for (const w of list) {
     const k = new Date(w.startedAt).toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })
     byMonth.set(k, [...(byMonth.get(k) ?? []), w])
   }
+  const totalMin = list.reduce((a, w) => a + ((w.endedAt ?? w.startedAt) - w.startedAt) / 60000, 0)
+  const totalVol = list.reduce((a, w) => a + workoutVolume(w), 0)
+  const toggle = (id: number) => { const n = new Set(sel); if (n.has(id)) n.delete(id); else n.add(id); setSel(n) }
+  const chosen = list.filter((w) => sel.has(w.id!))
+  const delSelected = async () => {
+    if (!chosen.length) return
+    if (!await ask(`${chosen.length} antrenman silinsin mi? Bu geri alınamaz.`, { danger: true, ok: 'Sil' })) return
+    await db.workouts.bulkDelete(chosen.map((w) => w.id!)); setSel(new Set()); setSelecting(false)
+  }
+  const shareSelected = () => chosen.length && shareText([...chosen].reverse().map((w) => workoutText(w, map)).join('\n\n———\n\n'), `${chosen.length} antrenman`)
+
   return (
-    <div className="stack">
-      {workouts.length === 0 && <p className="muted">Bitirdiğin antrenmanlar burada görünecek.</p>}
-      {workouts.length > 0 && <HistoryCharts />}
-      {[...byMonth].map(([month, list]) => (
-        <section key={month} className="stack">
-          <span className="section-label">{month} · {list.length} antrenman</span>
-          {list.map((w) => <WorkoutCard key={w.id} w={w} onClick={() => setOpen(w)} />)}
-        </section>
-      ))}
-      {open && <WorkoutDetail w={open} onClose={() => setOpen(null)} />}
+    <div className="screen">
+      <div className="screen-head row-between">
+        <h1>Geçmiş</h1>
+        {workouts.length > 0 && <button className="btn ghost" onClick={() => { setSelecting(!selecting); setSel(new Set()) }}>{selecting ? 'Bitti' : 'Seç'}</button>}
+      </div>
+      {workouts.length === 0 ? (
+        <div className="card empty"><h3>Henüz antrenman yok</h3><p className="muted small">Bitirdiğin antrenmanlar burada listelenir; buradan açabilir, tekrarlayabilir, paylaşabilir veya silebilirsin.</p></div>
+      ) : (
+        <>
+          <input className="input" placeholder="Antrenman, hareket veya not ara" value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="chips">
+            {([['all', 'Tümü'], ['30', 'Son 30 gün'], ['90', 'Son 3 ay'], ['year', 'Bu yıl']] as const).map(([v, l]) => (
+              <button key={v} className={`chip ${period === v ? 'on' : ''}`} onClick={() => setPeriod(v)}>{l}</button>
+            ))}
+          </div>
+          <div className="stat-row">
+            <div className="stat"><b>{list.length}</b><span>antrenman</span></div>
+            <div className="stat"><b>{Math.round(totalMin / 60)}</b><span>saat</span></div>
+            <div className="stat"><b>{fmtKg(totalVol / 1000)}</b><span>ton hacim</span></div>
+          </div>
+          {!selecting && <button className="btn" onClick={() => setCharts(!charts)}>{charts ? 'Grafikleri gizle' : 'Hareket grafiklerini göster'}</button>}
+          {charts && !selecting && <HistoryCharts />}
+          {list.length === 0 && <p className="muted small">Aramana uyan antrenman yok.</p>}
+          {[...byMonth].map(([month, ws]) => (
+            <section key={month} className="stack">
+              <span className="section-label">{month} · {ws.length} antrenman</span>
+              {ws.map((w) => (
+                <WorkoutCard key={w.id} w={w} selecting={selecting} selected={sel.has(w.id!)}
+                  onClick={() => (selecting ? toggle(w.id!) : setOpen(w))}
+                  onRepeat={async () => { if (await repeatWorkout(w)) onStarted?.() }}
+                  onShare={() => shareText(workoutText(w, map), w.name)}
+                  onDelete={async () => { if (await ask(`"${w.name}" (${fmtDate(w.startedAt)}) silinsin mi?`, { danger: true, ok: 'Sil' })) await db.workouts.delete(w.id!) }}
+                />
+              ))}
+            </section>
+          ))}
+        </>
+      )}
+      <VersionFooter />
+      {selecting && <div style={{ height: 64 }} />}
+      {selecting && (
+        <div className="select-bar">
+          <span><b>{chosen.length}</b> seçili</span>
+          <button className="btn sm" onClick={() => setSel(chosen.length === list.length ? new Set() : new Set(list.map((w) => w.id!)))}>{chosen.length === list.length ? 'Hiçbiri' : 'Tümü'}</button>
+          <button className="btn sm" disabled={!chosen.length} onClick={shareSelected}>Paylaş</button>
+          <button className="btn sm danger" disabled={!chosen.length} onClick={delSelected}>Sil</button>
+        </div>
+      )}
+      {open && <WorkoutDetail w={open} onClose={() => setOpen(null)} onStarted={onStarted} />}
     </div>
   )
 }
 
-function WorkoutCard({ w, onClick }: { w: Workout; onClick: () => void }) {
+function WorkoutCard({ w, onClick, selecting, selected, onRepeat, onShare, onDelete }: { w: Workout; onClick: () => void; selecting: boolean; selected: boolean; onRepeat: () => void; onShare: () => void; onDelete: () => void }) {
   const { map } = useExercises()
+  const [menu, setMenu] = useState(false)
   return (
-    <button className="card" onClick={onClick}>
-      <div className="row-between"><h3>{w.name}</h3><span className="muted small">{fmtDate(w.startedAt)}</span></div>
-      <div className="row small muted">
-        <span>{fmtDuration((w.endedAt ?? w.startedAt) - w.startedAt)}</span>·
-        <span>{fmtKg(workoutVolume(w))} kg</span>·
-        <span>{workoutSetCount(w)} set</span>
+    <div className={`card hist-card ${selected ? 'selected' : ''}`}>
+      <div className="row-between" style={{ alignItems: 'flex-start' }}>
+        <button className="stack grow" style={{ gap: 4, textAlign: 'left' }} onClick={onClick}>
+          <div className="row" style={{ gap: 10 }}>
+            {selecting && <span className={`sel-check ${selected ? 'on' : ''}`} aria-hidden="true">{selected ? '✓' : ''}</span>}
+            <h3>{w.name}</h3>
+          </div>
+          <span className="muted small">{fmtDate(w.startedAt, true)} · {fmtDuration((w.endedAt ?? w.startedAt) - w.startedAt)} · {fmtKg(workoutVolume(w))} kg · {workoutSetCount(w)} set</span>
+        </button>
+        {!selecting && <button className="icon-btn" aria-label="Seçenekler" onClick={() => setMenu(!menu)}>⋯</button>}
       </div>
-      <ul className="mini">
-        {w.exercises.map((e, i) => {
-          const work = e.sets.filter((s) => s.type !== 'warmup')
-          const top = work.reduce((b, s) => (e1rm(s.weight, s.reps) > e1rm(b?.weight, b?.reps) ? s : b), work[0])
-          return <li key={i}><span className="ellipsis">{work.length} × {map.get(e.exerciseId)?.name ?? e.exerciseId}</span><span className="muted mono">{top?.weight ? `${fmtKg(top.weight)} × ${top.reps}` : top?.reps ? `${top.reps} tekrar` : ''}</span></li>
-        })}
-      </ul>
-    </button>
+      {menu && !selecting && (
+        <div className="menu">
+          <button onClick={() => { setMenu(false); onClick() }}>Detayı aç</button>
+          <button onClick={() => { setMenu(false); onRepeat() }}>Bu antrenmanı tekrarla</button>
+          <button onClick={() => { setMenu(false); onShare() }}>Paylaş</button>
+          <button className="danger" onClick={() => { setMenu(false); onDelete() }}>Sil</button>
+        </div>
+      )}
+      <button onClick={onClick} style={{ textAlign: 'left' }}>
+        <ul className="mini">
+          {w.exercises.map((e, i) => {
+            const work = e.sets.filter((s) => s.type !== 'warmup')
+            const top = work.reduce((b, s) => (e1rm(s.weight, s.reps) > e1rm(b?.weight, b?.reps) ? s : b), work[0])
+            return <li key={i}><span className="ellipsis">{work.length} × {map.get(e.exerciseId)?.name ?? e.exerciseId}</span><span className="muted mono">{top?.weight ? `${fmtKg(top.weight)} × ${top.reps}` : top?.seconds && !top.reps ? `${Math.round(top.seconds / 60)} dk` : top?.reps ? `${top.reps} tekrar` : ''}</span></li>
+          })}
+        </ul>
+      </button>
+    </div>
   )
 }
 
-export function WorkoutDetail({ w, onClose, justFinished }: { w: Workout; onClose: () => void; justFinished?: boolean }) {
+export function WorkoutDetail({ w, onClose, justFinished, onStarted }: { w: Workout; onClose: () => void; justFinished?: boolean; onStarted?: () => void }) {
   const { map } = useExercises()
   const prs = useLiveQuery(async () => {
     const before = (await db.workouts.toArray()).filter((x) => x.startedAt < w.startedAt)
@@ -173,6 +283,10 @@ export function WorkoutDetail({ w, onClose, justFinished }: { w: Workout; onClos
             </div>
           )
         })}
+        <div className="row">
+          <button className="btn grow" onClick={() => shareText(workoutText(w, map), w.name)}>Paylaş</button>
+          <button className="btn grow" onClick={async () => { if (await repeatWorkout(w)) { onClose(); onStarted?.() } }}>Tekrarla</button>
+        </div>
         <button className="btn danger block" onClick={remove}>Antrenmanı sil</button>
       </div>
       {openEx && map.get(openEx) && <ExerciseDetail ex={map.get(openEx)!} onClose={() => setOpenEx(null)} />}

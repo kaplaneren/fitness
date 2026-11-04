@@ -7,7 +7,6 @@ import { DAY, LEVELS, WEEKLY_RANGE, bestE1rmByExercise, ffmi, hasStandard, level
 import { fmtDate, fmtKg, workoutVolume } from '../lib/calc'
 import BodyMap from '../components/BodyMap'
 import LineChart, { Bars } from '../components/LineChart'
-import { HistoryList } from './History'
 import ExerciseLibrary, { ExerciseDetail } from './Exercises'
 import { HealthView } from './Health'
 import VersionFooter from '../components/VersionFooter'
@@ -18,7 +17,7 @@ import { bodyFatSeries, groupVolumeWeeks, seriesTrend } from '../lib/insights'
 
 const GROUP_COLORS: [string, string][] = [['Göğüs', 'var(--plate-red)'], ['Sırt', 'var(--accent)'], ['Omuz', 'var(--plate-yellow)'], ['Kol', 'var(--ink-2)'], ['Bacak', 'var(--plate-green)'], ['Karın', 'color-mix(in srgb, var(--accent) 45%, var(--plate-red))']]
 
-type View = 'rapor' | 'guc' | 'kas' | 'vucut' | 'saglik' | 'beslenme' | 'gecmis'
+type View = 'rapor' | 'guc' | 'kas' | 'vucut' | 'saglik' | 'beslenme'
 
 export default function ProgressScreen() {
   const [view, setView] = useState<View>('rapor')
@@ -26,7 +25,7 @@ export default function ProgressScreen() {
     <div className="screen">
       <div className="screen-head"><h1>İlerleme</h1></div>
       <div className="chips">
-        {([['rapor', 'Haftalık rapor'], ['guc', 'Güç'], ['kas', 'Kaslar'], ['vucut', 'Vücut'], ['saglik', 'Sağlık'], ['beslenme', 'Beslenme'], ['gecmis', 'Geçmiş']] as const).map(([v, l]) => (
+        {([['rapor', 'Haftalık rapor'], ['guc', 'Güç'], ['kas', 'Kaslar'], ['vucut', 'Vücut'], ['saglik', 'Sağlık'], ['beslenme', 'Beslenme']] as const).map(([v, l]) => (
           <button key={v} className={`chip ${view === v ? 'on' : ''}`} onClick={() => setView(v)}>{l}</button>
         ))}
       </div>
@@ -36,7 +35,6 @@ export default function ProgressScreen() {
       {view === 'kas' && <Muscles />}
       {view === 'vucut' && <Body />}
       {view === 'saglik' && <HealthView />}
-      {view === 'gecmis' && <HistoryList />}
       <VersionFooter />
     </div>
   )

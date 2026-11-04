@@ -259,3 +259,11 @@ textarea.input { min-height: 72px; resize: vertical; }
 .btn { white-space: nowrap; }
 .row > .btn.grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .water { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; } .glass { width: auto; aspect-ratio: 26 / 32; height: auto; }
+
+/* Geçmiş */
+.tabbar button { font-size: 10.5px; letter-spacing: 0; min-width: 0; }
+.hist-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft, #dbe6ff); }
+.sel-check { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 2px solid var(--ink-2); background: transparent; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+.sel-check.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.select-bar { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(66px + var(--safe-b)); z-index: 12; display: flex; gap: 8px; align-items: center; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.select-bar > span { flex: 1; font-size: 14px; }
