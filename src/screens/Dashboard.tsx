@@ -1,3 +1,4 @@
+import MesoCard from '../components/MesoCard'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Routine } from '../db'
 import { useActiveWorkout, useDayEnergy, useExercises, useProfile } from '../hooks'
@@ -90,6 +91,8 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
       })()}
 
       <CheckinCard />
+
+      <MesoCard />
 
       <div className="card">
         <div className="card-title"><h3>Sıradaki antrenman</h3>{last && <span className="muted tiny">son: {fmtDate(last.startedAt)}</span>}</div>

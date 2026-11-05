@@ -7,6 +7,7 @@ import { useExercises, useProfile } from '../hooks'
 import { diaryCsv, importStrong, saveFile, shareFile, workoutsCsv } from '../lib/csv'
 import { fmtDate } from '../lib/calc'
 import { targets } from '../lib/nutrition'
+import { MesoSetting } from '../components/MesoCard'
 import EquipmentPicker from '../components/EquipmentPicker'
 import VersionFooter from '../components/VersionFooter'
 
@@ -153,6 +154,11 @@ export default function ProfileScreen() {
           <span>Dinamik dinlenme: ağır setlerde ve tükenişe yakın setlerde süreyi uzat, hafif setlerde kısalt</span>
         </label>
         <RestNotify />
+      </div>
+
+      <div className="card">
+        <h3>Döngü (periyotlama)</h3>
+        <MesoSetting />
       </div>
 
       <div className="card">

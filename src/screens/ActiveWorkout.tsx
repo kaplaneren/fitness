@@ -1,5 +1,6 @@
 import { ask, notify } from '../components/Dialog'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useMeso } from '../lib/meso'
 import { useEffect, useRef, useState } from 'react'
 import { db, setKV, type SetEntry, type SetType, type Workout, type WorkoutExercise } from '../db'
 import { restDone, unlockAudio, useExercises, useNow, useProfile, useWakeLock } from '../hooks'
@@ -22,6 +23,7 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
   const [w, setW] = useState<Workout>(workout)
   const { map } = useExercises()
   const profile = useProfile()
+  const { state: meso } = useMeso()
   const rest = (useLiveQuery(() => db.kv.get('rest'), [])?.value as Rest | null) ?? null
   const now = useNow(250)
   const [picker, setPicker] = useState<null | { mode: 'add' } | { mode: 'swap'; index: number }>(null)
@@ -155,6 +157,7 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
       )}
 
       <div className="sheet-body">
+        {meso && <div className={`meso-line ${meso.deload ? 'dl' : ''}`}><b>{meso.title}</b> · {meso.deload ? 'ağırlık ve set azaltıldı, setleri 3-4 tekrar yedekte bitir' : `hedef RIR ${meso.rir}: her seti ${meso.rir} tekrar yedekte bitir`}</div>}
         {lastSame && <TotalDiff w={w} last={lastSame} />}
         <input className="input title-input" value={w.name} onChange={(e) => save({ ...w, name: e.target.value })} />
 

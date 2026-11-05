@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.10.0', date: '5 Kasım 2026', items: [
+    'Döngü (periyotlama): 3+1, 4+1 veya 5+1 hafta. Yükleme haftalarında hedef RIR haftadan haftaya azalır, son hafta planlı deload ile ağırlık ve setler otomatik düşer',
+    'Program sihirbazında döngü seçimi; Profil\'de döngüyü açma, kapatma ve uzunluğunu değiştirme',
+    'Özet ve Antrenman ekranında döngü kartı (hangi haftadasın, bu haftanın hedefi), antrenman sırasında hafta ve hedef RIR satırı',
+    'İlk açılış tanıtımı: cinsiyet, yaş, boy, kilo, hedef, ekipman ve sağlık kısıtları sorulup program sihirbazı açılıyor; yedekten geri yükleme seçeneği de var'
+  ] },
   { v: '0.9.1', date: '5 Kasım 2026', items: [
     'Kadınlar için ayrı güç standartları (strengthlevel.com kadın tablosu); Profil\'de cinsiyet kadın seçiliyse seviye ve puan buna göre',
     'RIR girilen setlerde tahmini 1RM tükenişe kalan tekrarı da hesaba katıyor',

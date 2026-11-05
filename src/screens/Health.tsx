@@ -6,6 +6,7 @@ import { DAY } from '../lib/analysis'
 import { fmtDate } from '../lib/calc'
 import { todayKey } from '../lib/nutrition'
 import { strengthPlateaus } from '../lib/insights'
+import { useMeso } from '../lib/meso'
 import { JOINT_NAMES, cardioMinutes, deloadAdvice, hrZones, painLinks, readiness, type Joint } from '../lib/health'
 import LineChart from '../components/LineChart'
 import { ask } from '../components/Dialog'
@@ -77,6 +78,14 @@ export function DeloadCard() {
   const until = useLiveQuery(() => getKV<number | null>('deloadUntil', null), [])
   const d = deloadAdvice(workouts, checkins, strengthPlateaus(workouts, map).length)
   const active = until && until > Date.now()
+  const { state: meso } = useMeso()
+
+  if (meso) return (
+    <div className="card">
+      <div className="card-title"><h3>Deload</h3><span className={`pill ${meso.deload ? 'warn' : ''}`}>{meso.deload ? 'bu hafta' : 'planlı'}</span></div>
+      <p className="small">{meso.deload ? 'Döngünün planlı deload haftasındasın. Yeni antrenmanlarda ağırlık %10, set sayısı %40 azaltılır.' : `Döngü açık: deload ${meso.total - meso.week} hafta sonra kendiliğinden gelecek. Ayrıca deload başlatmana gerek yok.`}</p>
+    </div>
+  )
 
   if (active) return (
     <div className="card">

@@ -11,6 +11,7 @@ import { useActiveWorkout, useExercises } from '../hooks'
 import { MOBILITY_ROUTINES, startWorkout } from '../lib/workout'
 import RoutineEditor from './RoutineEditor'
 import Wizard from './Wizard'
+import MesoCard from '../components/MesoCard'
 import ExerciseLibrary from './Exercises'
 import VersionFooter from '../components/VersionFooter'
 import { fmtDate } from '../lib/calc'
@@ -80,6 +81,8 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
         </div>
         <button className="link small" onClick={importPasted}>Paylaşılan programı içe aktar</button>
       </div>
+
+      <MesoCard />
 
       <div className="row-between">
         <h2>Rutinler</h2>

@@ -4,19 +4,21 @@ import { useExercises, useProfile } from '../hooks'
 import { DURATION_MIN, MACHINES, buildPlan, type Adherence, type Duration, type Goal, type Machine, type Plan, type WarmupType } from '../lib/program'
 import { notify } from '../components/Dialog'
 import EquipmentPicker from '../components/EquipmentPicker'
+import { startMeso } from '../lib/meso'
 
 function Seg<T extends string | number>({ value, options, onChange }: { value: T; options: { v: T; l: string }[]; onChange: (v: T) => void }) {
   return <div className="seg">{options.map((o) => <button key={String(o.v)} className={value === o.v ? 'on' : ''} onClick={() => onChange(o.v)}>{o.l}</button>)}</div>
 }
 
-export default function Wizard({ onClose }: { onClose: () => void }) {
+export default function Wizard({ onClose, initialGoal, onSaved }: { onClose: () => void; initialGoal?: Goal; onSaved?: () => void }) {
   const profile = useProfile()
   const { map } = useExercises()
   const [days, setDays] = useState(4)
   const [adherence, setAdherence] = useState<Adherence>('orta')
   const [duration, setDuration] = useState<Duration>('orta')
-  const [goal, setGoal] = useState<Goal>('yag')
+  const [goal, setGoal] = useState<Goal>(initialGoal ?? 'yag')
   const [plan, setPlan] = useState<Plan | null>(null)
+  const [meso, setMeso] = useState(4)
   const [warmupMin, setWarmupMin] = useState(5)
   const [warmupType, setWarmupType] = useState<WarmupType>('bike')
   const [cardioMin, setCardioMin] = useState(0)
@@ -24,12 +26,14 @@ export default function Wizard({ onClose }: { onClose: () => void }) {
   const total = DURATION_MIN[duration]
   const left = total - warmupMin - cardioMin
 
-  const make = () => setPlan(buildPlan({ days, adherence, duration, goal, restrictions: profile.restrictions, equipment: profile.equipment, warmupMin, warmupType, cardioMin, cardioType }))
+  const make = () => setPlan(buildPlan({ days, adherence, duration, goal, restrictions: profile.restrictions, equipment: profile.equipment, warmupMin, warmupType, cardioMin, cardioType, meso }))
   const save = async () => {
     if (!plan) return
     const folder = `Program · ${new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}`
     await db.routines.bulkAdd(plan.days.map((d, i) => ({ name: `${i + 1}. ${d.name}`, folder, exercises: d.exercises, updatedAt: Date.now() })))
-    await notify(`${plan.days.length} rutin "${folder}" klasörüne kaydedildi.`)
+    if (meso) await startMeso(meso)
+    await notify(`${plan.days.length} rutin "${folder}" klasörüne kaydedildi.${meso ? ` ${meso}+1 haftalık döngü bu hafta başladı; ilerlemesini Özet ekranında görürsün.` : ''}`)
+    onSaved?.()
     onClose()
   }
 
@@ -59,6 +63,11 @@ export default function Wizard({ onClose }: { onClose: () => void }) {
             <div className="card">
               <h3>Hedefin</h3>
               <Seg value={goal} onChange={setGoal} options={[{ v: 'yag', l: 'Yağ yakımı' }, { v: 'kas', l: 'Kas' }, { v: 'guc', l: 'Güç' }]} />
+            </div>
+            <div className="card">
+              <h3>Döngü</h3>
+              <Seg value={meso} onChange={setMeso} options={[{ v: 0, l: 'Yok' }, { v: 3, l: '3+1' }, { v: 4, l: '4+1' }, { v: 5, l: '5+1' }]} />
+              <p className="muted small">{meso ? `${meso} hafta giderek zorlaşan yükleme, ardından 1 hafta planlı deload (ağırlık ve set azaltılır). Yorgunluk birikmeden ilerlemeyi sürdürmenin en güvenilir yolu.` : 'Planlı deload olmaz; yorgunluk işaretleri görülünce deload önerilir.'}</p>
             </div>
             <div className="card">
               <h3>Ekipman kısıtın var mı?</h3>

@@ -3,6 +3,7 @@ import { BUILTIN_EXERCISES, FLAG_INFO } from '../data/exercises'
 import { parseRange, recommend } from './progression'
 import { readiness } from './health'
 import { todayKey } from './nutrition'
+import { getMeso, mesoState } from './meso'
 
 const r25 = (x: number, step = 2.5) => Math.round(x / step) * step
 
@@ -10,6 +11,7 @@ const r25 = (x: number, step = 2.5) => Math.round(x / step) * step
 export async function trainingMode() {
   const until = await getKV<number | null>('deloadUntil', null)
   if (until && until > Date.now()) return { mode: 'deload' as const }
+  if (mesoState(await getMeso())?.deload) return { mode: 'deload' as const }
   const r = readiness(await db.checkins.get(todayKey()))
   if (r && r.score < 50) return { mode: 'low' as const, score: r.score }
   return { mode: 'normal' as const }

@@ -12,6 +12,8 @@ import ProgressScreen from './screens/Progress'
 import ProfileScreen from './screens/Profile'
 import HistoryScreen from './screens/History'
 import ActiveWorkout from './screens/ActiveWorkout'
+import Onboarding from './screens/Onboarding'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { WorkoutDetail } from './screens/History'
 import { db, type Workout } from './db'
 
@@ -33,6 +35,11 @@ export default function App() {
   const { workout } = useActiveWorkout()
   const profile = useProfile()
   const now = useNow(1000, !!workout && !workoutOpen)
+  // İlk açılış: hiç veri yoksa ve daha önce tamamlanmadıysa tanıtım adımları
+  const firstRun = useLiveQuery(async () => !(await db.kv.get('onboarded')) && !(await db.workouts.count()) && !(await db.routines.count()), [])
+  // Bir kez karar verilir; sihirbaz rutin kaydedince tanıtım kendiliğinden kapanmasın, onDone ile kapansın
+  const [onboarding, setOnboarding] = useState<boolean | null>(null)
+  useEffect(() => { if (firstRun != null && onboarding == null) setOnboarding(firstRun) }, [firstRun, onboarding])
 
   useEffect(() => {
     const root = document.documentElement
@@ -49,6 +56,13 @@ export default function App() {
     return () => window.removeEventListener('hashchange', run)
   }, [])
   useEffect(() => { importFromUrl().then((m) => { if (m) notify(m) }).catch(() => {}) }, [])
+
+  if (onboarding && !workout) return (
+    <div className="app">
+      <Onboarding onDone={() => { setTab('home'); setOnboarding(false) }} onRestore={() => { setTab('profile'); setOnboarding(false) }} />
+      <DialogHost />
+    </div>
+  )
 
   return (
     <div className="app">

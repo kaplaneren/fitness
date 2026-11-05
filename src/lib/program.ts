@@ -20,6 +20,8 @@ export interface WizardInput {
   /** Antrenman başı ısınma ve kardiyo süreleri (dk), toplam süreden düşülür */
   warmupMin: number; warmupType: WarmupType
   cardioMin: number; cardioType: Machine
+  /** Döngü: yükleme haftası sayısı (+1 deload); 0 = döngü yok */
+  meso?: number
 }
 export interface PlannedDay { name: string; exercises: RoutineExercise[]; minutes: number; split: { warmup: number; weights: number; cardio: number } }
 export interface Plan { title: string; days: PlannedDay[]; schedule: string; notes: string[] }
@@ -192,6 +194,7 @@ export function buildPlan(inp: WizardInput): Plan {
   if (inp.restrictions.length) notes.push(`Sağlık kısıtlarına (${inp.restrictions.map((f) => FLAG_INFO[f].short).join(', ')}) takılan hareketler yerine güvenli alternatifler seçildi.`)
   if (inp.equipment) notes.push(inp.equipment.length ? `Ekipman kısıtına göre sadece şunlarla yapılabilen hareketler seçildi: ${inp.equipment.map((g) => GEAR.find((x) => x.v === g)?.l).join(', ')}. Uygun hareketi olmayan bölümler atlandı.` : 'Ekipman seçmediğin için sadece vücut ağırlığı ve lastik hareketleri seçildi.')
   if (inp.goal === 'yag') notes.push('Yağ yakımında kas kaybını önlemek için ağırlıkları düşürme; tekrar aralığını koru, kalori açığını beslenmeden yarat.')
+  if (inp.meso) notes.push(`Döngü: ${inp.meso} hafta yükleme + 1 hafta deload. 1. hafta setleri 3 tekrar yedekte bitirirsin, her hafta biraz daha zorlanırsın; ${inp.meso + 1}. hafta ağırlık ve setler otomatik azalır. Sonra döngü yeniden başlar.`)
   notes.push('İlerleme kuralı: bir hareketin tüm setlerinde tekrar aralığının üstüne çıktığında ağırlığı 2,5 kg (dambılda 1-2 kg) artır.')
 
   const title = `${days} günlük ${keys.every((k) => k.startsWith('F')) ? 'tam vücut' : keys.includes('PU') ? 'itiş/çekiş/bacak' : 'üst/alt'} programı`
