@@ -3,6 +3,7 @@ import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
   { v: '0.8.1', date: '5 Kasım 2026', items: [
+    'Landmine press ve T-bar row artık ayrı "Landmine aparatı" ekipmanı istiyor; seçmezsen önerilmiyor',
     'Türk mutfağından 225 yeni yemek: yöresel çorbalar, kebaplar, zeytinyağlılar, mezeler, börek ve poğaçalar, pideler, sokak lezzetleri, şerbetli ve sütlü tatlılar, yöresel peynirler'
   ] },
   { v: '0.8.0', date: '5 Kasım 2026', items: [

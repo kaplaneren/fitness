@@ -3,7 +3,7 @@
 
 export type Gear =
   | 'dumbbell' | 'barbell' | 'bench' | 'incline' | 'smith' | 'preacher' | 'cable' | 'rowpull'
-  | 'chestpress' | 'fly' | 'legcurl' | 'legext' | 'legpress' | 'pullbar' | 'othermachine'
+  | 'chestpress' | 'fly' | 'legcurl' | 'legext' | 'legpress' | 'pullbar' | 'landmine' | 'othermachine'
 
 export const GEAR: { v: Gear; l: string; hint?: string }[] = [
   { v: 'dumbbell', l: 'Dambıl' },
@@ -20,6 +20,7 @@ export const GEAR: { v: Gear; l: string; hint?: string }[] = [
   { v: 'legext', l: 'Leg extension' },
   { v: 'legpress', l: 'Leg press' },
   { v: 'pullbar', l: 'Barfiks / paralel bar' },
+  { v: 'landmine', l: 'Landmine aparatı', hint: 'landmine press ve T-bar row için' },
   { v: 'othermachine', l: 'Diğer makineler', hint: 'omuz press, hack squat, calf, abduction vb.' }
 ]
 
@@ -34,9 +35,9 @@ const NEEDS: Record<string, string[]> = {
   hanging_knee_raise: ['pullbar'], dead_hang: ['pullbar'],
   lat_pulldown: ['rowpull'], lat_pulldown_close: ['rowpull'], seated_cable_row: ['rowpull'], straight_arm_pulldown: ['cable|rowpull'],
   chest_supported_row: ['othermachine'], incline_db_row: ['dumbbell', 'incline'], one_arm_db_row: ['dumbbell'],
-  barbell_row: ['barbell'], t_bar_row: ['barbell'], deadlift: ['barbell'], rdl: ['barbell'], db_rdl: ['dumbbell'],
+  barbell_row: ['barbell'], t_bar_row: ['barbell', 'landmine'], deadlift: ['barbell'], rdl: ['barbell'], db_rdl: ['dumbbell'],
   back_extension_45: ['othermachine'], shrug_db: ['dumbbell'], face_pull: ['cable'],
-  ohp: ['barbell'], seated_db_press: ['dumbbell', 'incline|bench'], machine_shoulder_press: ['othermachine'], landmine_press: ['barbell'],
+  ohp: ['barbell'], seated_db_press: ['dumbbell', 'incline|bench'], machine_shoulder_press: ['othermachine'], landmine_press: ['barbell', 'landmine'],
   lateral_raise: ['dumbbell'], cable_lateral_raise: ['cable'], machine_lateral_raise: ['othermachine'], rear_delt_fly: ['fly'],
   db_rear_delt: ['dumbbell', 'incline'], front_raise: ['dumbbell'],
   barbell_curl: ['barbell'], ez_curl: ['barbell'], db_curl: ['dumbbell'], hammer_curl: ['dumbbell'], incline_db_curl: ['dumbbell', 'incline'],
