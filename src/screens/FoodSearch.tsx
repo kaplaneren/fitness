@@ -174,7 +174,12 @@ function AmountSheet({ food, day, meal, onClose, onAdded, entry }: { food: Food;
             <span className="muted small">= {Math.round(g)} g</span>
           </div>
         ) : (
-          <label className="inline">Miktar <input id="amt-g" type="number" inputMode="decimal" value={grams} onChange={(e) => setGrams(+e.target.value || 0)} /> g</label>
+          <>
+            <label className="inline">Miktar <input id="amt-g" type="number" inputMode="decimal" value={grams} onChange={(e) => setGrams(+e.target.value || 0)} /> g</label>
+            <div className="chips wrap">
+              {[25, 50, 100, 150, 200, 250].map((x) => <button key={x} className={`chip ${grams === x ? 'on' : ''}`} onClick={() => setGrams(x)}>{x} g</button>)}
+            </div>
+          </>
         )}
         <div className="stat-row">
           <div className="stat"><b>{v.kcal}</b><span>kcal</span></div>

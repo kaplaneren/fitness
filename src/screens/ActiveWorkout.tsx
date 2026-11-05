@@ -2,10 +2,11 @@ import { ask, notify } from '../components/Dialog'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { db, setKV, type SetEntry, type SetType, type Workout, type WorkoutExercise } from '../db'
-import { beep, unlockAudio, useExercises, useNow, useProfile, useWakeLock } from '../hooks'
+import { restDone, unlockAudio, useExercises, useNow, useProfile, useWakeLock } from '../hooks'
 import { e1rm, fmtDate, fmtDuration, fmtKg, platesFor, setVolume, warmupSets, workoutSetCount, workoutVolume } from '../lib/calc'
 import { discardWorkout, finishWorkout, lastSetsFor, makeExercise } from '../lib/workout'
 import { dynamicRest, workingWeight } from '../lib/analysis'
+import { parseRange } from '../lib/progression'
 import ExercisePicker from '../components/ExercisePicker'
 import FlagBadges from '../components/FlagBadges'
 import { PLATE_COLORS } from '../lib/plates'
@@ -28,6 +29,8 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
   const [plateFor, setPlateFor] = useState<number | null>(null)
   const [workFor, setWorkFor] = useState<number | null>(null)
   const [prev, setPrev] = useState<Record<string, SetEntry[] | null>>({})
+  const [backoff, setBackoff] = useState<Record<number, { from: number; w: number; why: string }>>({})
+  const info0 = (id: string) => map.get(id)
   const [lastSame, setLastSame] = useState<Workout | null>(null)
   const [best, setBest] = useState<Record<string, number>>({})
   const fired = useRef<number | null>(null)
@@ -50,7 +53,7 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
       const history = await db.workouts.toArray()
       for (const id of new Set(w.exercises.map((e) => e.exerciseId))) {
         p[id] = await lastSetsFor(id, w.startedAt)
-        b[id] = Math.max(0, ...history.flatMap((h) => h.exercises.filter((e) => e.exerciseId === id).flatMap((e) => e.sets.map((s) => e1rm(s.weight, s.reps)))))
+        b[id] = Math.max(0, ...history.flatMap((h) => h.exercises.filter((e) => e.exerciseId === id).flatMap((e) => e.sets.map((s) => e1rm(s.weight, s.reps, s.rir)))))
       }
       const same = w.routineId ? history.filter((h) => h.routineId === w.routineId && h.startedAt < w.startedAt && h.endedAt).sort((a, z) => z.startedAt - a.startedAt)[0] : undefined
       if (alive) { setPrev(p); setBest(b); setLastSame(same ?? null) }
@@ -63,11 +66,19 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
   useEffect(() => {
     if (rest && restLeft <= 0 && fired.current !== rest.endAt) {
       fired.current = rest.endAt
-      beep()
+      restDone()
       setKV('rest', null)
     }
   }, [rest, restLeft])
   const startRest = (sec: number) => { if (sec > 0) setKV('rest', { endAt: Date.now() + sec * 1000, total: sec }) }
+  // Arka planda sayaç yavaşlasa bile bitişte uyar
+  useEffect(() => {
+    if (!rest) return
+    const ms = rest.endAt - Date.now()
+    if (ms <= 0) return
+    const id = setTimeout(() => { if (fired.current !== rest.endAt) { fired.current = rest.endAt; restDone(); setKV('rest', null) } }, ms)
+    return () => clearTimeout(id)
+  }, [rest?.endAt])
   const adjustRest = (d: number) => rest && setKV('rest', { endAt: rest.endAt + d * 1000, total: Math.max(1, rest.total + d) })
 
   const toggleDone = (i: number, si: number) => {
@@ -84,6 +95,18 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
       if (s.seconds == null && ref?.seconds != null) fill.seconds = ref.seconds
     }
     updSet(i, si, { done: !s.done, ...fill })
+    if (!s.done && s.type !== 'warmup' && info0(ex.exerciseId)?.kind !== 'time') {
+      // Tükenişe gidildiyse ya da hedef aralığın altında kalındıysa kalan setler için hafifletme (back-off) öner
+      const w0 = s.weight ?? fill.weight, reps = s.reps ?? fill.reps
+      const lo = parseRange(ex.target)?.[0]
+      const failed = s.rir === 0 || s.type === 'failure' || (lo != null && reps != null && reps < lo)
+      const rest = ex.sets.slice(si + 1).filter((x) => !x.done && x.type !== 'warmup' && (x.weight ?? w0 ?? 0) >= (w0 ?? 0))
+      if (failed && w0 && rest.length) {
+        const step = info0(ex.exerciseId)?.equipment === 'dumbbell' ? 1 : 2.5
+        const nw = Math.max(step, Math.round((w0 * 0.9) / step) * step)
+        if (nw < w0) setBackoff((b) => ({ ...b, [i]: { from: si, w: nw, why: s.rir === 0 || s.type === 'failure' ? 'Set tükenişe gitti' : `${reps} tekrar, hedefin (${lo}) altında` } }))
+      }
+    }
     if (!s.done) {
       // Süpersette grubun son hareketinden sonra dinlen
       const next = w.exercises[i + 1]
@@ -148,7 +171,7 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
                 <div>
                   <strong className="ex-name">{info?.name ?? ex.exerciseId}</strong>
                   {ex.superset && <span className="ss-tag">Süperset {ex.superset.toUpperCase()}</span>}
-                  {info && <FlagBadges flags={info.flags} active={profile.restrictions} />}
+                  {info && <FlagBadges flags={info.flags} active={profile.restrictions} alt={info.alt?.filter((a) => hasGear(a, profile.equipment)).map((a) => map.get(a)?.name ?? a)} />}
                 </div>
                 <button className="icon-btn" onClick={() => setMenu(menu === i ? null : i)} aria-label="Seçenekler">⋯</button>
               </div>
@@ -211,7 +234,7 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
                   {ex.sets.map((s, si) => {
                     const label = s.type === 'normal' ? String(s.side === 'R' ? workIdx : ++workIdx) : TYPE_LABEL[s.type]
                     const ps = s.type === 'warmup' ? undefined : pWork[workIdx - 1]
-                    const isPr = s.done && s.type !== 'warmup' && kind === 'weight' && e1rm(s.weight, s.reps) > (best[ex.exerciseId] ?? 0) && (best[ex.exerciseId] ?? 0) > 0
+                    const isPr = s.done && s.type !== 'warmup' && kind === 'weight' && e1rm(s.weight, s.reps, s.rir) > (best[ex.exerciseId] ?? 0) && (best[ex.exerciseId] ?? 0) > 0
                     return (
                       <tr key={si} className={`${s.done ? 'done' : ''} t-${s.type}`}>
                         <td>
@@ -241,6 +264,15 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
                   })}
                 </tbody>
               </table>
+              {backoff[i] && ex.sets.slice(backoff[i].from + 1).some((x) => !x.done && x.type !== 'warmup') && (
+                <div className="advice small backoff" data-tone="down">
+                  <b>▼ {backoff[i].why}.</b> Kalan setleri {fmtKg(backoff[i].w)} kg ile yapmak (yaklaşık %10 hafif) tekrar kalitesini korur.
+                  <div className="row" style={{ marginTop: 6 }}>
+                    <button className="btn sm primary" onClick={() => { const b = backoff[i]; updEx(i, (e) => ({ ...e, sets: e.sets.map((x, k) => (k > b.from && !x.done && x.type !== 'warmup' ? { ...x, weight: b.w } : x)) })); setBackoff(({ [i]: _x, ...r }) => r) }}>Uygula</button>
+                    <button className="btn sm ghost" onClick={() => setBackoff(({ [i]: _x, ...r }) => r)}>Aynı kalsın</button>
+                  </div>
+                </div>
+              )}
               {kind !== 'time' && <LiveDiff cur={ex.sets} prev={pWork} kind={kind} />}
               <div className="row-between">
                 <button className="link" onClick={() => updEx(i, (e) => {
@@ -387,7 +419,7 @@ function LiveDiff({ cur, prev, kind }: { cur: SetEntry[]; prev: SetEntry[]; kind
     const reps = (l: SetEntry[]) => l.reduce((a, s) => a + (s.reps ?? 0), 0)
     return <div className="diff-row"><span className="muted tiny">Geçen sefere göre</span><Diff label="Tekrar" v={pct(reps(done), reps(prev.slice(0, done.length)))} sub={`(${done.length} set)`} /></div>
   }
-  const best = (l: SetEntry[]) => Math.max(0, ...l.map((s) => e1rm(s.weight, s.reps)))
+  const best = (l: SetEntry[]) => Math.max(0, ...l.map((s) => e1rm(s.weight, s.reps, s.rir)))
   const vol = (l: SetEntry[]) => l.reduce((a, s) => a + setVolume(s), 0)
   const cv = vol(done), pv = vol(prev)
   return (

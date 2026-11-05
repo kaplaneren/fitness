@@ -63,7 +63,7 @@ export default function RoutineEditor({ routine, onClose }: { routine: Routine; 
                 <div>
                   <strong>{ex?.name ?? e.exerciseId}</strong>
                   {e.superset && <span className="ss-tag">Süperset {e.superset.toUpperCase()}</span>}
-                  {ex && <FlagBadges flags={ex.flags} active={profile.restrictions} />}
+                  {ex && <FlagBadges flags={ex.flags} active={profile.restrictions} alt={ex.alt?.map((a) => map.get(a)?.name ?? a)} />}
                 </div>
                 <div className="row">
                   <button className="icon-btn" onClick={() => move(i, -1)} aria-label="Yukarı">↑</button>

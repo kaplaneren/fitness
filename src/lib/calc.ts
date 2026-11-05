@@ -1,8 +1,10 @@
 import type { SetEntry, Workout } from '../db'
 
-/** Tahmini 1RM: 1-10 tekrar arası Brzycki ve Epley ortalaması; 10+ tekrar güvenilir değil. */
-export function e1rm(weight?: number, reps?: number): number {
+/** Tahmini 1RM: 1-10 tekrar arası Brzycki ve Epley ortalaması; 10+ tekrar güvenilir değil.
+ *  RIR girilmişse tükenişe kalan tekrar da hesaba katılır (8 tekrar + 2 RIR ≈ 10 tekrarlık efor). */
+export function e1rm(weight?: number, reps?: number, rir?: number): number {
   if (!weight || !reps || reps < 1) return 0
+  if (rir != null && rir > 0) reps = reps + Math.min(rir, 4)
   if (reps === 1) return weight
   const epley = weight * (1 + reps / 30)
   const brzycki = reps < 37 ? (weight * 36) / (37 - reps) : epley

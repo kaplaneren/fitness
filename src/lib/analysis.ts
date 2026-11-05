@@ -82,18 +82,34 @@ export const REGIONS: { name: string; ids: string[]; muscles: Muscle[] }[] = [
 /** Geriye dönük uyumluluk */
 export const PATTERNS = REGIONS
 
+// strengthlevel.com kadın standartları, 60 kg vücut ağırlığı için 1RM (kg); (kilo/60)^0,67 ile ölçeklenir.
+export const STANDARDS_F60: Record<string, number[]> = {
+  bench_press: [19, 31, 47, 66, 88], incline_bench: [14, 25, 39, 56, 76], db_bench_press: [7, 12, 19, 28, 38],
+  incline_db_press: [7, 12, 19, 26, 35], machine_chest_press: [11, 21, 36, 54, 75], squat: [32, 49, 72, 99, 129],
+  deadlift: [40, 60, 86, 116, 149], ohp: [12, 20, 31, 43, 57], seated_db_press: [6, 10, 15, 20, 27],
+  machine_shoulder_press: [8, 17, 30, 47, 66], barbell_row: [18, 29, 43, 59, 78], t_bar_row: [18, 29, 43, 59, 78],
+  lat_pulldown: [23, 33, 46, 60, 76], lat_pulldown_close: [23, 33, 46, 60, 76], seated_cable_row: [21, 32, 45, 62, 79],
+  chest_supported_row: [21, 32, 45, 62, 79], leg_press: [49, 87, 140, 204, 277], hip_thrust: [35, 63, 100, 147, 199],
+  rdl: [31, 47, 67, 90, 116], leg_extension: [22, 38, 59, 86, 115], lying_leg_curl: [15, 24, 36, 51, 67],
+  seated_leg_curl: [19, 31, 47, 67, 88], barbell_curl: [8, 14, 23, 34, 47], ez_curl: [8, 14, 23, 34, 47],
+  db_curl: [4, 7, 12, 18, 24], triceps_pushdown: [9, 17, 28, 42, 59], triceps_pushdown_bar: [9, 17, 28, 42, 59]
+}
+export type Sex = 'm' | 'f'
+
 export function hasStandard(id: string) { return id in STANDARDS_80 }
 
-export function standardsFor(id: string, bodyweight: number) {
-  const st = STANDARDS_80[id]
+export function standardsFor(id: string, bodyweight: number, sex: Sex = 'm') {
+  const f = sex === 'f'
+  const st = f ? STANDARDS_F60[id] : STANDARDS_80[id]
   if (!st) return null
-  const k = Math.pow((bodyweight || 80) / 80, 0.67)
+  const ref = f ? 60 : 80
+  const k = Math.pow((bodyweight || ref) / ref, 0.67)
   return st.map((x) => Math.round(x * k * 2) / 2)
 }
 
 /** Yüzdelik dilim (0-100): kaç erkekten güçlü olduğun. */
-export function liftScore(id: string, oneRm: number, bodyweight: number) {
-  const st = standardsFor(id, bodyweight)
+export function liftScore(id: string, oneRm: number, bodyweight: number, sex: Sex = 'm') {
+  const st = standardsFor(id, bodyweight, sex)
   if (!st || !oneRm) return 0
   if (oneRm <= st[0]) return Math.max(0, (oneRm / st[0]) * PCT[0])
   for (let i = 1; i < st.length; i++) if (oneRm <= st[i]) return PCT[i - 1] + ((oneRm - st[i - 1]) / (st[i] - st[i - 1])) * (PCT[i] - PCT[i - 1])
@@ -108,8 +124,8 @@ export function levelOf(p: number) {
   const i = levelIndex(p)
   return i < 0 ? 'Yeni' : LEVELS[i]
 }
-export function nextLevelWeight(id: string, p: number, bodyweight: number) {
-  const st = standardsFor(id, bodyweight)
+export function nextLevelWeight(id: string, p: number, bodyweight: number, sex: Sex = 'm') {
+  const st = standardsFor(id, bodyweight, sex)
   if (!st) return null
   const i = levelIndex(p) + 1
   if (i > 4) return null
@@ -122,17 +138,17 @@ export function bestE1rmByExercise(workouts: Workout[], since = 0) {
     if (w.startedAt < since) continue
     for (const e of w.exercises) for (const s of e.sets) {
       if (s.type === 'warmup' || !s.reps || s.reps > 12) continue
-      const v = e1rm(s.weight, s.reps)
+      const v = e1rm(s.weight, s.reps, s.rir)
       if (v > (best[e.exerciseId]?.v ?? 0)) best[e.exerciseId] = { v, date: w.startedAt }
     }
   }
   return best
 }
 
-export function strengthProfile(workouts: Workout[], bodyweight: number) {
+export function strengthProfile(workouts: Workout[], bodyweight: number, sex: Sex = 'm') {
   const best = bestE1rmByExercise(workouts)
   const regions = REGIONS.map((r) => {
-    const lifts = r.ids.filter((id) => best[id]).map((id) => ({ id, e1: best[id].v, score: liftScore(id, best[id].v, bodyweight) })).sort((x, y) => y.score - x.score)
+    const lifts = r.ids.filter((id) => best[id]).map((id) => ({ id, e1: best[id].v, score: liftScore(id, best[id].v, bodyweight, sex) })).sort((x, y) => y.score - x.score)
     // Bölge puanı: en iyi iki hareketin ortalaması (tek harekete aşırı bağımlılığı azaltır)
     const top = lifts.slice(0, 2)
     const score = top.length ? top.reduce((a, l) => a + l.score, 0) / top.length : 0

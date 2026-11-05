@@ -1,7 +1,7 @@
 import { ask, notify } from '../components/Dialog'
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, exportBackup, getProfile, importBackup, setKV, type Profile } from '../db'
+import { backupSummary, db, exportBackup, getProfile, importBackup, setKV, type Profile } from '../db'
 import { FLAG_INFO, type Flag } from '../data/exercises'
 import { useExercises, useProfile } from '../hooks'
 import { diaryCsv, importStrong, saveFile, shareFile, workoutsCsv } from '../lib/csv'
@@ -54,7 +54,9 @@ export default function ProfileScreen() {
   const doImport = async (f: File) => {
     try {
       const json = JSON.parse(await f.text())
-      if (!await ask('Telefondaki mevcut verilerin tamamı yedektekiyle değiştirilecek.', { title: 'Yedek geri yüklensin mi?', danger: true, ok: 'Geri yükle' })) return
+      const s = backupSummary(json)
+      if (!s) throw new Error('Bu dosya geçerli bir Fitness yedeği değil.')
+      if (!await ask(`Yedekte: ${s.text}.${s.date ? ` Alınma tarihi: ${fmtDate(s.date, true)}.` : ''}\n\nTelefondaki mevcut verilerin tamamı bununla değiştirilecek.`, { title: 'Yedek geri yüklensin mi?', danger: true, ok: 'Geri yükle' })) return
       await importBackup(json)
       notify('Yedek geri yüklendi.')
     } catch (e) { notify((e as Error).message || 'Dosya okunamadı. Fitness uygulamasından alınmış bir .json yedeği seç.') }
@@ -150,6 +152,7 @@ export default function ProfileScreen() {
           <input type="checkbox" checked={profile.dynamicRest} onChange={() => update({ dynamicRest: !profile.dynamicRest })} />
           <span>Dinamik dinlenme: ağır setlerde ve tükenişe yakın setlerde süreyi uzat, hafif setlerde kısalt</span>
         </label>
+        <RestNotify />
       </div>
 
       <div className="card">
@@ -207,6 +210,18 @@ export default function ProfileScreen() {
       </div>
 
       <VersionFooter />
+    </div>
+  )
+}
+
+function RestNotify() {
+  const supported = typeof window !== 'undefined' && 'Notification' in window
+  const [perm, setPerm] = useState(supported ? Notification.permission : 'denied')
+  if (!supported) return <p className="muted tiny">Dinlenme bitince ses çalar ve (Android'de) telefon titrer. Bu tarayıcı bildirim desteklemiyor; iPhone'da bildirim için uygulamayı ana ekrana ekle.</p>
+  return (
+    <div className="row-between" style={{ gap: 10 }}>
+      <span className="small grow">Dinlenme bitince bildirim (uygulama arka plandayken){perm === 'denied' ? ': telefon ayarlarından kapatılmış' : ''}</span>
+      {perm === 'granted' ? <span className="pill good">açık</span> : perm === 'default' && <button className="btn sm" onClick={async () => setPerm(await Notification.requestPermission())}>İzin ver</button>}
     </div>
   )
 }

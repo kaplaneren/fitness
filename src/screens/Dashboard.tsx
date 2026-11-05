@@ -29,7 +29,7 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
   const thisWeek = workouts.filter((w) => w.startedAt >= weekAgo)
   const sets = muscleSets(workouts, map, weekAgo)
   const levels = Object.fromEntries((Object.keys(WEEKLY_RANGE) as Muscle[]).map((m) => [m, (sets[m] ?? 0) / Math.max(1, WEEKLY_RANGE[m][1])]))
-  const sp = strengthProfile(workouts, profile.bodyweight)
+  const sp = strengthProfile(workouts, profile.bodyweight, profile.sex)
   const last = workouts[workouts.length - 1]
 
   // Sıradaki rutin: en son kullanılan rutinin klasöründe sıradaki
@@ -74,6 +74,20 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
           ))}
         </div>
       </div>
+
+      {(() => {
+        const since = profile.lastBackup ?? 0
+        const newW = workouts.filter((w) => w.startedAt > since).length
+        const days = profile.lastBackup ? Math.floor((Date.now() - profile.lastBackup) / DAY) : null
+        if (!(newW >= 3 && (days == null || days >= 7))) return null
+        return (
+          <div className="card warn-card">
+            <div className="card-title"><h3>Yedek zamanı</h3><span className="pill warn">{days == null ? 'hiç alınmadı' : `${days} gün önce`}</span></div>
+            <p className="small">Veriler sadece bu telefonda. Son yedekten beri {newW} antrenman eklendi; telefon değişir veya tarayıcı verisi silinirse kaybolur.</p>
+            <button className="btn primary sm" onClick={() => go('profile')}>Profil'de yedek al</button>
+          </div>
+        )
+      })()}
 
       <CheckinCard />
 

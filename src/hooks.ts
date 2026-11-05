@@ -88,3 +88,13 @@ export function useDayEnergy(day: string) {
   const t = targets(profile, { burn: burn.kcal, steps: checkin?.steps, training })
   return { profile, burn, t, steps: checkin?.steps ?? null, training, healthKcal }
 }
+
+/** Dinlenme bitti uyarısı: ses + titreşim (Android) + uygulama arka plandaysa bildirim (izin verildiyse). */
+export function restDone() {
+  beep()
+  try { navigator.vibrate?.([250, 120, 250]) } catch { /* yok */ }
+  if (typeof document !== 'undefined' && document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+    const opts = { body: 'Sıradaki sete geçebilirsin.', tag: 'rest', icon: './apple-touch-icon.png' }
+    navigator.serviceWorker?.ready.then((r) => r.showNotification('Dinlenme bitti', opts)).catch(() => { try { new Notification('Dinlenme bitti', opts) } catch { /* yok */ } })
+  }
+}

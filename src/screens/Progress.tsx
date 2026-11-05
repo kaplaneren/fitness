@@ -45,7 +45,7 @@ function Strength() {
   const profile = useProfile()
   const { map } = useExercises()
   const [open, setOpen] = useState<string | null>(null)
-  const sp = strengthProfile(workouts, profile.bodyweight)
+  const sp = strengthProfile(workouts, profile.bodyweight, profile.sex)
   const best = bestE1rmByExercise(workouts)
   const ranked = Object.entries(best).sort((a, b) => b[1].v - a[1].v)
   const levels: Partial<Record<Muscle, number>> = {}
@@ -72,8 +72,8 @@ function Strength() {
               <span className="pill">{levelOf(sp.total)}</span>
             </div>
             <LevelScale p={sp.total} />
-            <p className="small">{fmtKg(profile.bodyweight)} kg bir erkek olarak, kaydettiğin hareketlere göre erkeklerin yaklaşık <b>%{Math.round(sp.total)}</b>'inden güçlüsün.</p>
-            <p className="muted tiny">Kaynak: strengthlevel.com erkek standartları (80 kg tablosu, kilona göre ölçeklenmiş). {sp.covered}/6 bölge ölçüldü.</p>
+            <p className="small">{fmtKg(profile.bodyweight)} kg bir {profile.sex === 'f' ? 'kadın' : 'erkek'} olarak, kaydettiğin hareketlere göre {profile.sex === 'f' ? 'kadınların' : 'erkeklerin'} yaklaşık <b>%{Math.round(sp.total)}</b>'inden güçlüsün. Bu bir tahmindir.</p>
+            <p className="muted tiny">Kaynak: strengthlevel.com {profile.sex === 'f' ? 'kadın standartları (60 kg' : 'erkek standartları (80 kg'} tablosu, kilona göre (kilo/{profile.sex === 'f' ? 60 : 80})^0,67 ile ölçeklenmiş). {sp.covered}/6 bölge ölçüldü.</p>
           </>
         ) : <p className="muted small">Bench, lat pulldown, row, shoulder press, leg press veya hip thrust gibi standart hareketlerden birini kaydettiğinde güç seviyen hesaplanır.</p>}
       </div>
@@ -113,7 +113,7 @@ function Strength() {
               <li key={id} onClick={() => setOpen(id)}>
                 <div className="stack" style={{ gap: 2 }}>
                   <span className="title">{map.get(id)?.name ?? id}</span>
-                  <span className="muted tiny">{fmtDate(b.date)} · kilonun {(b.v / profile.bodyweight).toFixed(2)} katı{hasStandard(id) ? ` · ${levelOf(liftScore(id, b.v, profile.bodyweight))}` : ''}</span>
+                  <span className="muted tiny">{fmtDate(b.date)} · kilonun {(b.v / profile.bodyweight).toFixed(2)} katı{hasStandard(id) ? ` · ${levelOf(liftScore(id, b.v, profile.bodyweight, profile.sex))}` : ''}</span>
                 </div>
                 <b className="mono">{fmtKg(b.v)} kg</b>
               </li>

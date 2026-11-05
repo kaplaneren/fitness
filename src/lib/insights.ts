@@ -93,7 +93,7 @@ export function strengthPlateaus(workouts: Workout[], exMap: Map<string, Exercis
     if (!ex || ex.kind !== 'weight') continue
     const sessions = workouts.filter((w) => w.exercises.some((e) => e.exerciseId === id)).map((w) => ({
       t: w.startedAt,
-      v: Math.max(0, ...w.exercises.filter((e) => e.exerciseId === id).flatMap((e) => e.sets.filter((s) => s.type !== 'warmup' && (s.reps ?? 99) <= 12).map((s) => e1rm(s.weight, s.reps))))
+      v: Math.max(0, ...w.exercises.filter((e) => e.exerciseId === id).flatMap((e) => e.sets.filter((s) => s.type !== 'warmup' && (s.reps ?? 99) <= 12).map((s) => e1rm(s.weight, s.reps, s.rir))))
     })).filter((s) => s.v > 0)
     if (sessions.length < 4) continue
     const best = Math.max(...sessions.map((s) => s.v))

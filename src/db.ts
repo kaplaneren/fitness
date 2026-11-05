@@ -238,7 +238,16 @@ const BACKUP_TABLES = ['customExercises', 'routines', 'workouts', 'measurements'
 export async function exportBackup() {
   const data: Record<string, unknown[]> = {}
   for (const t of BACKUP_TABLES) data[t] = await db.table(t).toArray()
-  return { app: 'form', version: 1, exportedAt: new Date().toISOString(), data }
+  return { app: 'form', version: 1, schema: db.verno, appVersion: __APP_VERSION__, exportedAt: new Date().toISOString(), data }
+}
+
+/** Geri yüklemeden önce yedeğin içeriğini özetler; geçersizse null. */
+export function backupSummary(json: unknown) {
+  const b = json as { app?: string; exportedAt?: string; data?: Record<string, unknown[]> }
+  if (b?.app !== 'form' || !b.data) return null
+  const n = (t: string) => b.data![t]?.length ?? 0
+  const parts = [[n('workouts'), 'antrenman'], [n('routines'), 'rutin'], [n('measurements'), 'ölçüm'], [n('diary'), 'beslenme kaydı'], [n('checkins'), 'günlük kontrol'], [n('foods') + n('customExercises'), 'özel yiyecek/hareket']] as const
+  return { text: parts.filter(([c]) => c).map(([c, l]) => `${c} ${l}`).join(', ') || 'boş yedek', date: b.exportedAt ? Date.parse(b.exportedAt) : null }
 }
 
 export async function importBackup(json: unknown) {

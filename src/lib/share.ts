@@ -7,8 +7,24 @@ import { ask, notify } from '../components/Dialog'
 
 interface Packed { v: 1; f?: string; r: [string, [string, number, string, number, string?][]][]; c?: Exercise[] }
 
-const b64 = (s: string) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-const unb64 = (s: string) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)))
+const bytesToB64 = (b: Uint8Array) => { let s = ''; for (const x of b) s += String.fromCharCode(x); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') }
+const b64ToBytes = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
+const b64 = (s: string) => bytesToB64(new TextEncoder().encode(s))
+const unb64 = (s: string) => new TextDecoder().decode(b64ToBytes(s))
+
+async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionStream) {
+  const out = new Response(new Blob([data as BlobPart]).stream().pipeThrough(stream))
+  return new Uint8Array(await out.arrayBuffer())
+}
+// Kod biçimi: "z" + sıkıştırılmış (deflate-raw) base64url; eski linkler sıkıştırmasız JSON base64url ("ey..." ile başlar)
+async function pack(json: string) {
+  try { if (typeof CompressionStream !== 'undefined') return 'z' + bytesToB64(await pipe(new TextEncoder().encode(json), new CompressionStream('deflate-raw'))) } catch { /* düz */ }
+  return b64(json)
+}
+async function unpack(code: string) {
+  if (code.startsWith('z')) return new TextDecoder().decode(await pipe(b64ToBytes(code.slice(1)), new DecompressionStream('deflate-raw')))
+  return unb64(code)
+}
 
 export async function programCode(routines: Routine[], folder?: string) {
   const ids = new Set(routines.flatMap((r) => r.exercises.map((e) => e.exerciseId)))
@@ -22,7 +38,7 @@ export async function programCode(routines: Routine[], folder?: string) {
     })]),
     ...(custom.length ? { c: custom } : {})
   }
-  return b64(JSON.stringify(p))
+  return pack(JSON.stringify(p))
 }
 
 export function shareLink(code: string) {
@@ -30,21 +46,23 @@ export function shareLink(code: string) {
   return base ? `${base}#p=${code}` : `#p=${code}`
 }
 
-function decode(input: string): Packed | null {
+async function decode(input: string): Promise<Packed | null> {
   const m = input.trim().match(/(?:#p=)?([A-Za-z0-9_-]{8,})\s*$/)
   if (!m) return null
   try {
-    const p = JSON.parse(unb64(m[1])) as Packed
+    const p = JSON.parse(await unpack(m[1])) as Packed
     return p?.v === 1 && Array.isArray(p.r) ? p : null
   } catch { return null }
 }
 
 /** Link ya da kodu çözüp onay sorar ve rutinleri ekler. Eklenen rutin sayısını döner. */
 export async function importProgram(input: string): Promise<number> {
-  const p = decode(input)
+  const p = await decode(input)
   if (!p) { await notify('Bu link veya kod okunamadı. Paylaşılan linkin tamamını kopyaladığından emin ol.'); return 0 }
   const names = p.r.map(([n]) => n).join(', ')
-  if (!await ask(`${p.f ? `"${p.f}" programı: ` : ''}${p.r.length} rutin (${names}) rutinlerine eklensin mi?`, { title: 'Program içe aktar', ok: 'Ekle' })) return 0
+  const exCount = p.r.reduce((a, [, ex]) => a + ex.length, 0)
+  const newCustom = (p.c ?? []).length ? (await Promise.all((p.c ?? []).map((c) => db.customExercises.get(c.id)))).filter((x) => !x).length : 0
+  if (!await ask(`${p.f ? `"${p.f}" programı\n` : ''}${p.r.length} rutin: ${names}\n${exCount} hareket satırı${newCustom ? `, ${newCustom} yeni özel hareket` : ''}.\n\nRutinlerine yeni bir klasör olarak eklensin mi? Mevcut rutinlerin değişmez.`, { title: 'Program içe aktar', ok: 'Ekle' })) return 0
   const existing = new Set((await db.routines.toArray()).map((r) => r.folder).filter(Boolean))
   let folder = p.f || 'Paylaşılan program'
   if (existing.has(folder)) { let i = 2; while (existing.has(`${folder} (${i})`)) i++; folder = `${folder} (${i})` }

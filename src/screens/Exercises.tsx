@@ -22,6 +22,7 @@ export default function ExerciseLibrary({ onClose, initialMuscle }: { onClose: (
   const base = useFilteredExercises(query, group)
   const list = muscle ? base.filter((e) => e.primary.includes(muscle)) : base
   const profile = useProfile()
+  const { map: exMap } = useExercises()
   return (
     <div className="sheet">
       <div className="sheet-head">
@@ -43,7 +44,7 @@ export default function ExerciseLibrary({ onClose, initialMuscle }: { onClose: (
               <div className="stack grow" style={{ gap: 3 }}>
                 <span className="title">{e.name}</span>
                 <span className="muted tiny">{e.primary.map((m) => MUSCLE_NAMES[m]).join(', ')} · {EQUIPMENT_NAMES[e.equipment]}</span>
-                <FlagBadges flags={e.flags} active={profile.restrictions} />
+                <FlagBadges flags={e.flags} active={profile.restrictions} alt={e.alt?.map((a) => exMap.get(a)?.name ?? a)} />
               </div>
               <span className="muted">›</span>
             </li>
@@ -66,14 +67,14 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
   }, [ex.id]) ?? []
   const all = history.flatMap((h) => h.sets)
   const rm = useLiveQuery(async () => repMaxes(await db.workouts.toArray(), ex.id), [ex.id]) ?? {}
-  const best1rm = Math.max(0, ...all.map((s) => (s.reps && s.reps <= 12 ? e1rm(s.weight, s.reps) : 0)))
+  const best1rm = Math.max(0, ...all.map((s) => (s.reps && s.reps <= 12 ? e1rm(s.weight, s.reps, s.rir) : 0)))
   const maxW = Math.max(0, ...all.map((s) => s.weight ?? 0))
   const maxReps = Math.max(0, ...all.map((s) => s.reps ?? 0))
   const hit = ex.flags.filter((f) => profile.restrictions.includes(f))
 
   const series = useMemo(() => history.map((h) => ({
     t: h.date,
-    v: metric === 'e1rm' ? Math.max(0, ...h.sets.map((s) => e1rm(s.weight, s.reps)))
+    v: metric === 'e1rm' ? Math.max(0, ...h.sets.map((s) => e1rm(s.weight, s.reps, s.rir)))
       : metric === 'vol' ? h.sets.reduce((a, s) => a + (s.weight ?? 0) * (s.reps ?? 0), 0)
       : Math.max(0, ...h.sets.map((s) => s.weight ?? 0))
   })).filter((p) => p.v > 0), [history, metric])
@@ -87,8 +88,8 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
     return { pts: [last, { t: last.t + 28 * DAY, v: tr.at(last.t + 28 * DAY) }], slope: tr.slope, in12: tr.at(last.t + 84 * DAY) }
   }, [series, metric])
 
-  const score = hasStandard(ex.id) && best1rm ? liftScore(ex.id, best1rm, profile.bodyweight) : 0
-  const next = score ? nextLevelWeight(ex.id, score, profile.bodyweight) : null
+  const score = hasStandard(ex.id) && best1rm ? liftScore(ex.id, best1rm, profile.bodyweight, profile.sex) : 0
+  const next = score ? nextLevelWeight(ex.id, score, profile.bodyweight, profile.sex) : null
 
   return (
     <div className="sheet">
@@ -123,7 +124,7 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
         )}
 
         {(() => {
-          const side = (k: 'L' | 'R') => Math.max(0, ...all.filter((x) => x.side === k).map((x) => e1rm(x.weight, x.reps)))
+          const side = (k: 'L' | 'R') => Math.max(0, ...all.filter((x) => x.side === k).map((x) => e1rm(x.weight, x.reps, x.rir)))
           const vol = (k: 'L' | 'R') => all.filter((x) => x.side === k).reduce((a, x) => a + (x.weight ?? 0) * (x.reps ?? 0), 0)
           const l = side('L'), r = side('R')
           if (!l || !r) return null
@@ -146,7 +147,7 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
             <div className="card-title"><h3>Güç seviyesi</h3><span className="pill">{levelOf(score)}</span></div>
             <LevelScale p={score} />
             <p className="small">Erkeklerin yaklaşık <b>%{Math.round(score)}</b>'inden güçlü · 1RM kilonun <b>{(best1rm / profile.bodyweight).toFixed(2)}</b> katı{next && <> · {next.level} için <b>{fmtKg(next.kg)} kg</b></>}</p>
-            {standardsFor(ex.id, profile.bodyweight) && <p className="muted tiny">strengthlevel.com ({fmtKg(profile.bodyweight)} kg): {standardsFor(ex.id, profile.bodyweight)!.map((k, i) => `${LEVELS[i]} ${fmtKg(k)}`).join(' · ')}{ex.equipment === 'dumbbell' ? ' (tek dambıl)' : ''}</p>}
+            {standardsFor(ex.id, profile.bodyweight, profile.sex) && <p className="muted tiny">strengthlevel.com ({profile.sex === 'f' ? 'kadın' : 'erkek'}, {fmtKg(profile.bodyweight)} kg): {standardsFor(ex.id, profile.bodyweight, profile.sex)!.map((k, i) => `${LEVELS[i]} ${fmtKg(k)}`).join(' · ')}{ex.equipment === 'dumbbell' ? ' (tek dambıl)' : ''}</p>}
           </div>
         )}
 

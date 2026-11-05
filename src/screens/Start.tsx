@@ -2,6 +2,7 @@ import { ask, askText, notify } from '../components/Dialog'
 import type { Exercise } from '../data/exercises'
 import { importProgram, programCode, shareLink } from '../lib/share'
 import { shareText } from './History'
+import QrSheet from '../components/QrSheet'
 import { fmtRest } from '../lib/calc'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
@@ -40,6 +41,12 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
   }
   const [viewing, setViewing] = useState<Routine | null>(null)
   const [folderMenu, setFolderMenu] = useState<string | null>(null)
+  const [qr, setQr] = useState<{ text: string; title: string } | null>(null)
+  const showQr = async (list: Routine[], title: string, folder?: string) => {
+    const code = await programCode(list, folder)
+    const link = shareLink(code)
+    setQr({ text: link.startsWith('#') ? code : link, title })
+  }
   const renameFolder = async (f: string) => {
     const name = (await askText('Klasörün yeni adı', { title: 'Adı değiştir', value: f }))?.trim()
     if (!name || name === f) return
@@ -105,6 +112,7 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
             <div className="menu">
               <button onClick={() => { setFolderMenu(null); renameFolder(folder) }}>Adını değiştir</button>
               <button onClick={() => { setFolderMenu(null); shareRoutines(list, folder, folder === 'Rutinlerim' ? undefined : folder) }}>Programı paylaş</button>
+              <button onClick={() => { setFolderMenu(null); showQr(list, folder, folder === 'Rutinlerim' ? undefined : folder) }}>QR kod göster</button>
               {folder !== 'Rutinlerim' && <button className="danger" onClick={() => { setFolderMenu(null); deleteFolder(folder) }}>Klasörü sil</button>}
             </div>
           )}
@@ -128,8 +136,10 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
         <RoutineView r={viewing} map={map} last={lastByRoutine.get(viewing.id!)} onClose={() => setViewing(null)}
           onStart={() => { const r = viewing; setViewing(null); start(r) }}
           onEdit={() => { const r = viewing; setViewing(null); setEditing(r) }}
-          onShare={() => shareRoutines([viewing], viewing.name, viewing.folder)} />
+          onShare={() => shareRoutines([viewing], viewing.name, viewing.folder)}
+          onQr={() => showQr([viewing], viewing.name, viewing.folder)} />
       )}
+      {qr && <QrSheet text={qr.text} title={qr.title} onClose={() => setQr(null)} />}
       {editing && <RoutineEditor routine={editing} onClose={() => setEditing(null)} />}
       {wizard && <Wizard onClose={() => setWizard(false)} />}
       {library && <ExerciseLibrary onClose={() => setLibrary(false)} />}
@@ -146,7 +156,7 @@ function programText(list: Routine[], title: string, map: Map<string, Exercise>)
   return lines.join('\n')
 }
 
-function RoutineView({ r, map, last, onClose, onStart, onEdit, onShare }: { r: Routine; map: Map<string, Exercise>; last?: number; onClose: () => void; onStart: () => void; onEdit: () => void; onShare: () => void }) {
+function RoutineView({ r, map, last, onClose, onStart, onEdit, onShare, onQr }: { r: Routine; map: Map<string, Exercise>; last?: number; onClose: () => void; onStart: () => void; onEdit: () => void; onShare: () => void; onQr: () => void }) {
   return (
     <div className="sheet">
       <div className="sheet-head">
@@ -173,6 +183,7 @@ function RoutineView({ r, map, last, onClose, onStart, onEdit, onShare }: { r: R
         <div className="row">
           <button className="btn grow" onClick={onEdit}>Düzenle</button>
           <button className="btn grow" onClick={onShare}>Paylaş</button>
+          <button className="btn grow" onClick={onQr}>QR kod</button>
         </div>
       </div>
     </div>

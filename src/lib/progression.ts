@@ -80,5 +80,5 @@ export function recommend(ex: Exercise | undefined, exerciseId: string, history:
 }
 
 export function e1rmOf(sets: SetEntry[]) {
-  return Math.max(0, ...sets.map((s) => e1rm(s.weight, s.reps)))
+  return Math.max(0, ...sets.map((s) => e1rm(s.weight, s.reps, s.rir)))
 }

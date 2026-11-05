@@ -56,7 +56,7 @@ function HistoryCharts({ onOpen }: { onOpen: (w: Workout) => void }) {
   const series = workouts.flatMap((w) => {
     const sets = w.exercises.filter((e) => e.exerciseId === id).flatMap((e) => e.sets.filter((s) => s.type !== 'warmup'))
     if (!sets.length) return []
-    const v = metric === 'e1rm' ? Math.max(0, ...sets.filter((s) => (s.reps ?? 99) <= 12).map((s) => e1rm(s.weight, s.reps)))
+    const v = metric === 'e1rm' ? Math.max(0, ...sets.filter((s) => (s.reps ?? 99) <= 12).map((s) => e1rm(s.weight, s.reps, s.rir)))
       : metric === 'max' ? Math.max(0, ...sets.map((s) => s.weight ?? 0))
       : sets.reduce((a, s) => a + (s.weight ?? 0) * (s.reps ?? 0), 0)
     return v > 0 ? [{ t: w.startedAt, v }] : []
@@ -193,7 +193,7 @@ function WorkoutCard({ w, onClick, selecting, selected, onRepeat, onShare, onDel
         <ul className="mini">
           {w.exercises.map((e, i) => {
             const work = e.sets.filter((s) => s.type !== 'warmup')
-            const top = work.reduce((b, s) => (e1rm(s.weight, s.reps) > e1rm(b?.weight, b?.reps) ? s : b), work[0])
+            const top = work.reduce((b, s) => (e1rm(s.weight, s.reps, s.rir) > e1rm(b?.weight, b?.reps, b?.rir) ? s : b), work[0])
             return <li key={i}><span className="ellipsis">{work.length} × {map.get(e.exerciseId)?.name ?? e.exerciseId}</span><span className="muted mono">{top?.weight ? `${fmtKg(top.weight)} × ${top.reps}` : top?.seconds && !top.reps ? `${Math.round(top.seconds / 60)} dk` : top?.reps ? `${top.reps} tekrar` : ''}</span></li>
           })}
         </ul>
@@ -209,7 +209,7 @@ export function WorkoutDetail({ w, onClose, justFinished, onStarted }: { w: Work
     const best = bestE1rmByExercise(before)
     const list: { name: string; v: number }[] = []
     for (const e of w.exercises) {
-      const top = Math.max(0, ...e.sets.filter((s) => s.type !== 'warmup' && (s.reps ?? 99) <= 12).map((s) => e1rm(s.weight, s.reps)))
+      const top = Math.max(0, ...e.sets.filter((s) => s.type !== 'warmup' && (s.reps ?? 99) <= 12).map((s) => e1rm(s.weight, s.reps, s.rir)))
       if (top > 0 && best[e.exerciseId] && top > best[e.exerciseId].v) list.push({ name: map.get(e.exerciseId)?.name ?? '', v: top })
     }
     return list
@@ -244,7 +244,7 @@ export function WorkoutDetail({ w, onClose, justFinished, onStarted }: { w: Work
           <div className="stat"><b>{burn.kcal}</b><span>kcal yakıldı</span></div>
           {w.heartRateAvg && <div className="stat"><b>{w.heartRateAvg}</b><span>ort. nabız</span></div>}
         </div>
-        <p className="muted tiny">Yakılan kalori: {Math.round(burn.weightMin)} dk ağırlık × {profile.kcalWeights} kcal/saat{burn.cardioMin >= 1 ? ` + ${Math.round(burn.cardioMin)} dk kardiyo × ${profile.kcalCardio} kcal/saat` : ''}.</p>
+        <p className="muted tiny">{burn.method === 'hr' ? `Yakılan kalori ortalama nabız (${w.heartRateAvg}), kilo, yaş ve cinsiyetten Keytel formülüyle hesaplandı; dinlenme metabolizması düşüldü.` : <>Yakılan kalori: {Math.round(burn.weightMin)} dk ağırlık × {profile.kcalWeights} kcal/saat{burn.cardioMin >= 1 ? ` + ${Math.round(burn.cardioMin)} dk kardiyo × ${profile.kcalCardio} kcal/saat` : ''}. Ortalama nabız girersen kişiye özel hesaplanır.</>}</p>
         {prs.length > 0 && (
           <div className="card">
             <h3>Yeni rekorlar</h3>
@@ -275,7 +275,7 @@ export function WorkoutDetail({ w, onClose, justFinished, onStarted }: { w: Work
                     <tr key={si} className={`t-${s.type}`}>
                       <td style={{ width: 28 }}><b>{s.type === 'normal' ? ++n : s.type === 'warmup' ? 'I' : s.type === 'drop' ? 'D' : 'F'}</b></td>
                       <td className="mono">{s.seconds != null ? `${Math.round(s.seconds / 60)} dk` : `${s.weight != null ? fmtKg(s.weight) + ' kg × ' : ''}${s.reps ?? ''}`}{s.rir != null ? ` · RIR ${s.rir}` : ''}</td>
-                      <td className="muted tiny">{s.weight && s.reps && s.type !== 'warmup' ? `1RM ≈ ${fmtKg(e1rm(s.weight, s.reps))}` : ''}</td>
+                      <td className="muted tiny">{s.weight && s.reps && s.type !== 'warmup' ? `1RM ≈ ${fmtKg(e1rm(s.weight, s.reps, s.rir))}` : ''}</td>
                     </tr>
                   ))}
                 </tbody>

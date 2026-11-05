@@ -106,9 +106,21 @@ export function workoutBurn(w: Workout, exMap: Map<string, Exercise>, profile: P
     .filter((e) => exMap.get(e.exerciseId)?.kind === 'time' && exMap.get(e.exerciseId)?.equipment !== 'bodyweight')
     .reduce((a, e) => a + e.sets.filter((s) => s.done !== false).reduce((b, s) => b + (s.seconds ?? 0), 0) / 60, 0))
   const weightMin = totalMin - cardioMin
+  const hr = w.heartRateAvg
+  if (hr && hr >= 80 && totalMin > 0) {
+    // Ortalama nabız girildiyse Keytel (2005) formülü: toplam harcama − dinlenme (bazal) = aktif kalori
+    const kg = w.bodyweight ?? profile.bodyweight, age = profile.age
+    const perMin = profile.sex === 'f'
+      ? (-20.4022 + 0.4472 * hr - 0.1263 * kg + 0.074 * age) / 4.184
+      : (-55.0969 + 0.6309 * hr + 0.1988 * kg + 0.2017 * age) / 4.184
+    const bmr = 10 * kg + 6.25 * profile.height - 5 * age + (profile.sex === 'm' ? 5 : -161)
+    const active = Math.max(0, perMin - bmr / 1440)
+    const weights = active * weightMin, cardio = active * cardioMin
+    return { weightMin, cardioMin, weights, cardio, kcal: Math.round(weights + cardio), method: 'hr' as const }
+  }
   const weights = (weightMin / 60) * profile.kcalWeights
   const cardio = (cardioMin / 60) * profile.kcalCardio
-  return { weightMin, cardioMin, weights, cardio, kcal: Math.round(weights + cardio) }
+  return { weightMin, cardioMin, weights, cardio, kcal: Math.round(weights + cardio), method: 'rate' as const }
 }
 
 /** Bir günde (YYYY-AA-GG) yapılan antrenmanların toplam aktif kalorisi; devam eden antrenman dahil. */

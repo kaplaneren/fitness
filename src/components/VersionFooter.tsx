@@ -2,6 +2,17 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.9.1', date: '5 Kasım 2026', items: [
+    'Kadınlar için ayrı güç standartları (strengthlevel.com kadın tablosu); Profil\'de cinsiyet kadın seçiliyse seviye ve puan buna göre',
+    'RIR girilen setlerde tahmini 1RM tükenişe kalan tekrarı da hesaba katıyor',
+    'Antrenman sonunda ortalama nabız girildiyse yakılan kalori nabız, kilo, yaş ve cinsiyetten (Keytel formülü) hesaplanıyor',
+    'Tükenişe giden veya hedef tekrarın altında kalan setten sonra kalan setler için %10 hafifletme (back-off) önerisi',
+    'Dinlenme bitince titreşim (Android) ve uygulama arka plandaysa bildirim; izin Profil > Antrenman ayarları',
+    'Son yedekten beri 3+ antrenman ve 7+ gün geçtiyse Özet\'te yedek hatırlatıcısı; geri yüklemeden önce yedeğin içeriği gösteriliyor',
+    'Yiyecek eklerken 25-250 g hızlı gram butonları',
+    '⚠ kısıt rozetine dokununca neden riskli olduğu, ipucu ve güvenli alternatifler',
+    'Program paylaşım linkleri sıkıştırıldı (yaklaşık yarı uzunluk), içe aktarmada özet; programı QR kodla paylaşma'
+  ] },
   { v: '0.9.0', date: '5 Kasım 2026', items: [
     'Grafiklere dokunup parmağını kaydırınca o tarihteki değer ve bir öncekine göre fark görünüyor; uzun geçmişte 1A/3A/6A/1Y/Tümü aralığı seçilebiliyor',
     'Geçmiş hareket grafiğinde seçilen noktanın antrenmanı tek dokunuşla açılıyor',
