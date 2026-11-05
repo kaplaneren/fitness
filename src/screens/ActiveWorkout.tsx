@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { db, setKV, type SetEntry, type SetType, type Workout, type WorkoutExercise } from '../db'
 import { beep, unlockAudio, useExercises, useNow, useProfile, useWakeLock } from '../hooks'
-import { e1rm, fmtDuration, fmtKg, platesFor, warmupSets } from '../lib/calc'
+import { e1rm, fmtDate, fmtDuration, fmtKg, platesFor, setVolume, warmupSets, workoutSetCount, workoutVolume } from '../lib/calc'
 import { discardWorkout, finishWorkout, lastSetsFor, makeExercise } from '../lib/workout'
 import { dynamicRest, workingWeight } from '../lib/analysis'
 import ExercisePicker from '../components/ExercisePicker'
@@ -28,6 +28,7 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
   const [plateFor, setPlateFor] = useState<number | null>(null)
   const [workFor, setWorkFor] = useState<number | null>(null)
   const [prev, setPrev] = useState<Record<string, SetEntry[] | null>>({})
+  const [lastSame, setLastSame] = useState<Workout | null>(null)
   const [best, setBest] = useState<Record<string, number>>({})
   const fired = useRef<number | null>(null)
   useWakeLock(true)
@@ -51,7 +52,8 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
         p[id] = await lastSetsFor(id, w.startedAt)
         b[id] = Math.max(0, ...history.flatMap((h) => h.exercises.filter((e) => e.exerciseId === id).flatMap((e) => e.sets.map((s) => e1rm(s.weight, s.reps)))))
       }
-      if (alive) { setPrev(p); setBest(b) }
+      const same = w.routineId ? history.filter((h) => h.routineId === w.routineId && h.startedAt < w.startedAt && h.endedAt).sort((a, z) => z.startedAt - a.startedAt)[0] : undefined
+      if (alive) { setPrev(p); setBest(b); setLastSame(same ?? null) }
     })()
     return () => { alive = false }
   }, [ids, w.startedAt])
@@ -130,6 +132,7 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
       )}
 
       <div className="sheet-body">
+        {lastSame && <TotalDiff w={w} last={lastSame} />}
         <input className="input title-input" value={w.name} onChange={(e) => save({ ...w, name: e.target.value })} />
 
         {w.exercises.map((ex, i) => {
@@ -238,6 +241,7 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
                   })}
                 </tbody>
               </table>
+              {kind !== 'time' && <LiveDiff cur={ex.sets} prev={pWork} kind={kind} />}
               <div className="row-between">
                 <button className="link" onClick={() => updEx(i, (e) => {
                   const last = e.sets[e.sets.length - 1]
@@ -360,6 +364,51 @@ function WorkModal({ name, oneRm, onClose, onApply }: { name: string; oneRm: num
           <button className="btn primary" disabled={sel == null} onClick={() => sel != null && onApply(sel)}>Setlere uygula</button>
         </div>
       </div>
+    </div>
+  )
+}
+
+const pct = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : null)
+function Diff({ label, v, sub }: { label: string; v: number | null; sub?: string }) {
+  if (v == null) return null
+  const r = Math.round(v * 10) / 10
+  return (
+    <span className="diff-chip">
+      {label} <b className={r > 0 ? 'good' : r < 0 ? 'bad' : 'muted'}>{r > 0 ? '+' : ''}{r.toLocaleString('tr-TR')}%</b>{sub && <span className="muted"> {sub}</span>}
+    </span>
+  )
+}
+
+/** Hareket bazında geçen seferle anlık fark: tahmini 1RM, aynı set sayısındaki hacim ve toplam hacim. */
+function LiveDiff({ cur, prev, kind }: { cur: SetEntry[]; prev: SetEntry[]; kind: string }) {
+  const done = cur.filter((s) => s.done && s.type !== 'warmup')
+  if (!done.length || !prev.length) return null
+  if (kind !== 'weight') {
+    const reps = (l: SetEntry[]) => l.reduce((a, s) => a + (s.reps ?? 0), 0)
+    return <div className="diff-row"><span className="muted tiny">Geçen sefere göre</span><Diff label="Tekrar" v={pct(reps(done), reps(prev.slice(0, done.length)))} sub={`(${done.length} set)`} /></div>
+  }
+  const best = (l: SetEntry[]) => Math.max(0, ...l.map((s) => e1rm(s.weight, s.reps)))
+  const vol = (l: SetEntry[]) => l.reduce((a, s) => a + setVolume(s), 0)
+  const cv = vol(done), pv = vol(prev)
+  return (
+    <div className="diff-row">
+      <span className="muted tiny">Geçen sefere göre</span>
+      <Diff label="1RM" v={pct(best(done), best(prev))} sub={`${fmtKg(best(done))} kg`} />
+      <Diff label="Hacim" v={pct(cv, vol(prev.slice(0, done.length)))} sub={`(${done.length} set)`} />
+      {pv > 0 && <span className="diff-chip">Toplam <b>{fmtKg(cv)}</b><span className="muted"> / {fmtKg(pv)} kg</span></span>}
+    </div>
+  )
+}
+
+/** Aynı rutinin son antrenmanına göre toplam hacim ve set. */
+function TotalDiff({ w, last }: { w: Workout; last: Workout }) {
+  const v = workoutVolume(w), lv = workoutVolume(last)
+  if (!workoutSetCount(w) || !lv) return null
+  return (
+    <div className="card diff-total">
+      <div className="row-between small"><b>Geçen sefer · {last.name}</b><span className="muted tiny">{fmtDate(last.startedAt)}</span></div>
+      <div className="bar-track"><div className="bar-fill" style={{ width: `${Math.min(100, (v / lv) * 100)}%` }} /></div>
+      <p className="small">Hacim <b>{fmtKg(v)}</b> / {fmtKg(lv)} kg (%{Math.round((v / lv) * 100)}) · Set {workoutSetCount(w)} / {workoutSetCount(last)}</p>
     </div>
   )
 }

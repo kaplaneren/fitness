@@ -28,7 +28,7 @@ export async function shareText(text: string, title: string) {
   try {
     if (navigator.share) { await navigator.share({ title, text }); return }
   } catch (e) { if ((e as Error).name === 'AbortError') return }
-  try { await navigator.clipboard.writeText(text); notify('Antrenman özeti panoya kopyalandı; WhatsApp veya mesaja yapıştırabilirsin.') }
+  try { await navigator.clipboard.writeText(text); notify('Panoya kopyalandı; WhatsApp veya mesaja yapıştırabilirsin.') }
   catch { notify(text, 'Kopyalayıp paylaş') }
 }
 
@@ -43,7 +43,7 @@ export async function repeatWorkout(w: Workout) {
   return true
 }
 
-function HistoryCharts() {
+function HistoryCharts({ onOpen }: { onOpen: (w: Workout) => void }) {
   const workouts = useLiveQuery(() => db.workouts.orderBy('startedAt').toArray(), []) ?? []
   const { map } = useExercises()
   const counts = new Map<string, number>()
@@ -75,7 +75,7 @@ function HistoryCharts() {
         <button className={metric === 'max' ? 'on' : ''} onClick={() => setMetric('max')}>Maks. kg</button>
         <button className={metric === 'vol' ? 'on' : ''} onClick={() => setMetric('vol')}>Hacim</button>
       </div>
-      <LineChart points={series} projection={proj} unit=" kg" />
+      <LineChart points={series} projection={proj} unit=" kg" onOpen={(p) => { const w = workouts.find((x) => x.startedAt === p.t); if (w) onOpen(w) }} />
       {tr && tr.slope > 0 && <p className="small">Eğilim haftada <b>+{fmtKg(tr.slope)} kg</b>; kesikli çizgi 4 haftalık tahmin.</p>}
       {series.length >= 2 && metric !== 'e1rm' && <p className="small">İlk seanstan bu yana <b>{fmtKg(series[series.length - 1].v - series[0].v)} kg</b> fark.</p>}
     </div>
@@ -134,7 +134,7 @@ export default function HistoryScreen({ onStarted }: { onStarted?: () => void })
             <div className="stat"><b>{fmtKg(totalVol / 1000)}</b><span>ton hacim</span></div>
           </div>
           {!selecting && <button className="btn" onClick={() => setCharts(!charts)}>{charts ? 'Grafikleri gizle' : 'Hareket grafiklerini göster'}</button>}
-          {charts && !selecting && <HistoryCharts />}
+          {charts && !selecting && <HistoryCharts onOpen={setOpen} />}
           {list.length === 0 && <p className="muted small">Aramana uyan antrenman yok.</p>}
           {[...byMonth].map(([month, ws]) => (
             <section key={month} className="stack">

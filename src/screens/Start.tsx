@@ -1,4 +1,8 @@
-import { ask } from '../components/Dialog'
+import { ask, askText, notify } from '../components/Dialog'
+import type { Exercise } from '../data/exercises'
+import { importProgram, programCode, shareLink } from '../lib/share'
+import { shareText } from './History'
+import { fmtRest } from '../lib/calc'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { db, type Routine } from '../db'
@@ -34,6 +38,25 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
     const f = r.folder || 'Rutinlerim'
     folders.set(f, [...(folders.get(f) ?? []), r])
   }
+  const [viewing, setViewing] = useState<Routine | null>(null)
+  const [folderMenu, setFolderMenu] = useState<string | null>(null)
+  const renameFolder = async (f: string) => {
+    const name = (await askText('Klasörün yeni adı', { title: 'Adı değiştir', value: f }))?.trim()
+    if (!name || name === f) return
+    if (folders.has(name) && !await ask(`"${name}" adında bir klasör zaten var. Rutinler o klasörle birleştirilsin mi?`, { ok: 'Birleştir' })) return
+    await db.routines.bulkPut(folders.get(f)!.map((r) => ({ ...r, folder: name === 'Rutinlerim' ? undefined : name })))
+  }
+  const shareRoutines = async (list: Routine[], title: string, folder?: string) => {
+    const code = await programCode(list, folder)
+    const link = shareLink(code)
+    await shareText(`${programText(list, title, map)}\n\nFitness uygulamasına eklemek için: ${link.startsWith('#') ? `Antrenman > Program içe aktar ekranına bu kodu yapıştır:\n${code}` : link}`, title)
+  }
+  const importPasted = async () => {
+    const t = await askText('Arkadaşının paylaştığı program linkini veya kodunu yapıştır.', { title: 'Program içe aktar', placeholder: 'https://… veya kod', ok: 'Devam' })
+    if (!t?.trim()) return
+    const n = await importProgram(t)
+    if (n) notify(`${n} rutin eklendi.`)
+  }
   const deleteFolder = async (f: string) => {
     if (!await ask(`"${f}" klasöründeki tüm rutinler silinsin mi?`, { danger: true, ok: 'Sil' })) return
     await db.routines.bulkDelete(folders.get(f)!.map((r) => r.id!))
@@ -48,6 +71,7 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
           <button className="btn grow" onClick={() => setWizard(true)}>Program oluştur</button>
           <button className="btn grow" onClick={() => setLibrary(true)}>Hareketler</button>
         </div>
+        <button className="link small" onClick={importPasted}>Paylaşılan programı içe aktar</button>
       </div>
 
       <div className="row-between">
@@ -75,17 +99,23 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
         <section key={folder} className="stack">
           <div className="row-between">
             <span className="section-label">{folder}</span>
-            {folder !== 'Rutinlerim' && <button className="link muted tiny" onClick={() => deleteFolder(folder)}>Klasörü sil</button>}
+            <button className="icon-btn" aria-label="Klasör seçenekleri" onClick={() => setFolderMenu(folderMenu === folder ? null : folder)}>⋯</button>
           </div>
+          {folderMenu === folder && (
+            <div className="menu">
+              <button onClick={() => { setFolderMenu(null); renameFolder(folder) }}>Adını değiştir</button>
+              <button onClick={() => { setFolderMenu(null); shareRoutines(list, folder, folder === 'Rutinlerim' ? undefined : folder) }}>Programı paylaş</button>
+              {folder !== 'Rutinlerim' && <button className="danger" onClick={() => { setFolderMenu(null); deleteFolder(folder) }}>Klasörü sil</button>}
+            </div>
+          )}
           <div className="grid2">
             {list.map((r) => (
               <div key={r.id} className="card">
-                <div className="row-between">
+                <button className="stack" style={{ gap: 6, textAlign: 'left' }} onClick={() => setViewing(r)}>
                   <h3>{r.name}</h3>
-                  <button className="icon-btn" aria-label="Düzenle" onClick={() => setEditing(r)}>⋯</button>
-                </div>
-                <p className="muted small clamp">{r.exercises.map((e) => map.get(e.exerciseId)?.name ?? e.exerciseId).join(', ')}</p>
-                <p className="muted tiny">{r.exercises.length} hareket{lastByRoutine.get(r.id!) ? ` · son: ${fmtDate(lastByRoutine.get(r.id!)!)}` : ''}</p>
+                  <p className="muted small clamp">{r.exercises.map((e) => map.get(e.exerciseId)?.name ?? e.exerciseId).join(', ')}</p>
+                  <p className="muted tiny">{r.exercises.length} hareket{lastByRoutine.get(r.id!) ? ` · son: ${fmtDate(lastByRoutine.get(r.id!)!)}` : ''}</p>
+                </button>
                 <button className="btn primary sm" onClick={() => start(r)}>Başlat</button>
               </div>
             ))}
@@ -94,9 +124,57 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
       ))}
 
       <VersionFooter />
+      {viewing && (
+        <RoutineView r={viewing} map={map} last={lastByRoutine.get(viewing.id!)} onClose={() => setViewing(null)}
+          onStart={() => { const r = viewing; setViewing(null); start(r) }}
+          onEdit={() => { const r = viewing; setViewing(null); setEditing(r) }}
+          onShare={() => shareRoutines([viewing], viewing.name, viewing.folder)} />
+      )}
       {editing && <RoutineEditor routine={editing} onClose={() => setEditing(null)} />}
       {wizard && <Wizard onClose={() => setWizard(false)} />}
       {library && <ExerciseLibrary onClose={() => setLibrary(false)} />}
+    </div>
+  )
+}
+
+function programText(list: Routine[], title: string, map: Map<string, Exercise>) {
+  const lines = [`📋 ${title}`]
+  list.forEach((r, i) => {
+    if (list.length > 1 || r.name !== title) lines.push('', r.name); else lines.push('')
+    for (const e of r.exercises) lines.push(`• ${map.get(e.exerciseId)?.name ?? e.exerciseId}: ${e.sets} × ${e.reps}${e.superset ? ` (süperset ${e.superset.toUpperCase()})` : ''}`)
+  })
+  return lines.join('\n')
+}
+
+function RoutineView({ r, map, last, onClose, onStart, onEdit, onShare }: { r: Routine; map: Map<string, Exercise>; last?: number; onClose: () => void; onStart: () => void; onEdit: () => void; onShare: () => void }) {
+  return (
+    <div className="sheet">
+      <div className="sheet-head">
+        <button className="btn ghost" onClick={onClose}>Kapat</button>
+        <strong className="ellipsis">{r.name}</strong>
+        <button className="btn ghost" onClick={onEdit}>Düzenle</button>
+      </div>
+      <div className="sheet-body">
+        <div className="card">
+          <p className="muted small">{r.folder ?? 'Rutinlerim'} · {r.exercises.length} hareket · {r.exercises.reduce((a, e) => a + e.sets, 0)} set{last ? ` · son: ${fmtDate(last)}` : ''}</p>
+          <table className="sets read">
+            <tbody>
+              {r.exercises.map((e, j) => (
+                <tr key={j}>
+                  <td>{map.get(e.exerciseId)?.name ?? e.exerciseId}{e.superset && <span className="ss-tag" style={{ marginLeft: 6 }}>S{e.superset.toUpperCase()}</span>}</td>
+                  <td className="mono" style={{ whiteSpace: 'nowrap' }}>{e.sets} × {e.reps}</td>
+                  <td className="muted tiny" style={{ whiteSpace: 'nowrap' }}>{e.restSec ? fmtRest(e.restSec) : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <button className="btn primary block" onClick={onStart}>Başlat</button>
+        <div className="row">
+          <button className="btn grow" onClick={onEdit}>Düzenle</button>
+          <button className="btn grow" onClick={onShare}>Paylaş</button>
+        </div>
+      </div>
     </div>
   )
 }

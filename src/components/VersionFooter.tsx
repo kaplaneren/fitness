@@ -2,6 +2,14 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.9.0', date: '5 Kasım 2026', items: [
+    'Grafiklere dokunup parmağını kaydırınca o tarihteki değer ve bir öncekine göre fark görünüyor; uzun geçmişte 1A/3A/6A/1Y/Tümü aralığı seçilebiliyor',
+    'Geçmiş hareket grafiğinde seçilen noktanın antrenmanı tek dokunuşla açılıyor',
+    'Rutine dokununca önce görüntüleniyor; Başlat, Düzenle ve Paylaş oradan',
+    'Program klasörünün adı değiştirilebiliyor (klasörün ⋯ menüsü)',
+    'Rutin ve programlar linkle paylaşılıyor; linki açan kişi programı kendi rutinlerine ekleyebiliyor (Antrenman > Paylaşılan programı içe aktar)',
+    'Antrenman sırasında her harekette geçen sefere göre anlık % fark: tahmini 1RM, aynı set sayısındaki hacim ve toplam hacim; üstte rutinin geçen seferine göre toplam hacim'
+  ] },
   { v: '0.8.1', date: '5 Kasım 2026', items: [
     'Landmine press ve T-bar row artık ayrı "Landmine aparatı" ekipmanı istiyor; seçmezsen önerilmiyor',
     'Türk mutfağından 225 yeni yemek: yöresel çorbalar, kebaplar, zeytinyağlılar, mezeler, börek ve poğaçalar, pideler, sokak lezzetleri, şerbetli ve sütlü tatlılar, yöresel peynirler'
