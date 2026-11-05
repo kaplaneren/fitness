@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import { BUILTIN_EXERCISES, type Exercise, type Flag } from './data/exercises'
+import type { Gear } from './lib/equipment'
 
 export type SetType = 'normal' | 'warmup' | 'drop' | 'failure'
 
@@ -75,6 +76,8 @@ export interface Profile {
   age: number
   sex: 'm' | 'f'
   restrictions: Flag[]
+  /** Eldeki ekipman; null/boşsa tam donanımlı salon */
+  equipment?: Gear[] | null
   defaultRest: number
   dynamicRest: boolean
   barWeight: number
@@ -154,7 +157,7 @@ export interface Food {
   servings?: { label: string; g: number }[]
   cat?: string
   barcode?: string
-  source?: 'base' | 'off' | 'user' | 'recipe'
+  source?: 'base' | 'usda' | 'off' | 'user' | 'recipe'
   ingredients?: { foodId: string; g: number }[]
 }
 

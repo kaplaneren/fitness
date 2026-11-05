@@ -283,3 +283,4 @@ input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .inline input { width: 96px; flex: none; }
 .dialog-actions .btn, .dialog .row .btn { min-width: 0; }
 .dialog .fields { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
+.btn.wrap-btn { white-space: normal; text-align: center; padding: 8px 16px; line-height: 1.3; }

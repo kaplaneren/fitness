@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.8.0', date: '5 Kasım 2026', items: [
+    'Besin kütüphanesine USDA (ABD Tarım Bakanlığı) besin veritabanından 233 temel gıda eklendi: sebze, meyve, et, balık, peynir, tahıl, baklagil, kuruyemiş, yağ, baharat ve daha fazlası',
+    'USDA kaynaklı gıdalar aramada "USDA" etiketiyle görünür, lif değeri de içerir',
+    'Program sihirbazına "Ekipman kısıtın var mı?" sorusu eklendi; sadece elindeki ekipmanla yapılabilen hareketler önerilir',
+    'Ekipman seçimi Profil sayfasından da değiştirilebilir; antrenmandaki güvenli alternatif önerileri de buna uyar'
+  ] },
   { v: '0.7.2', date: '4 Kasım 2026', items: [
     'Strong içe aktarmada dinlenme satırları ("2 dk" gibi) artık set sayılmıyor, dinlenme süresi olarak kaydediliyor',
     'Daha önce aktarılmış antrenmanlardaki bu satırlar otomatik düzeltildi',

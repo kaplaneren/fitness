@@ -9,6 +9,7 @@ import { dynamicRest, workingWeight } from '../lib/analysis'
 import ExercisePicker from '../components/ExercisePicker'
 import FlagBadges from '../components/FlagBadges'
 import { PLATE_COLORS } from '../lib/plates'
+import { hasGear } from '../lib/equipment'
 import { workoutBurn } from '../lib/health'
 
 interface Rest { endAt: number; total: number }
@@ -149,10 +150,10 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
                 <button className="icon-btn" onClick={() => setMenu(menu === i ? null : i)} aria-label="Seçenekler">⋯</button>
               </div>
 
-              {restricted && info?.alt?.length ? (
+              {restricted && info?.alt?.some((a) => hasGear(a, profile.equipment)) ? (
                 <div className="alt">
                   Daha güvenli alternatif:{' '}
-                  {info.alt.map((a) => <button key={a} className="link" onClick={() => swapExercise(i, a)}>{map.get(a)?.name ?? a}</button>)}
+                  {info.alt.filter((a) => hasGear(a, profile.equipment)).map((a) => <button key={a} className="link" onClick={() => swapExercise(i, a)}>{map.get(a)?.name ?? a}</button>)}
                 </div>
               ) : null}
               {ex.advice && (

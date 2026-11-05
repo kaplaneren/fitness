@@ -1,5 +1,6 @@
 import { BUILTIN_EXERCISES, FLAG_INFO, type Flag } from '../data/exercises'
 import type { RoutineExercise } from '../db'
+import { GEAR, hasGear, type Gear } from './equipment'
 
 export type Adherence = 'iyi' | 'orta' | 'kotu'
 export type Duration = 'kisa' | 'orta' | 'uzun'
@@ -14,6 +15,8 @@ export const DURATION_MIN: Record<Duration, number> = { kisa: 45, orta: 60, uzun
 
 export interface WizardInput {
   days: number; adherence: Adherence; duration: Duration; goal: Goal; restrictions: Flag[]
+  /** Eldeki ekipman; boşsa tam donanımlı salon */
+  equipment?: Gear[] | null
   /** Antrenman başı ısınma ve kardiyo süreleri (dk), toplam süreden düşülür */
   warmupMin: number; warmupType: WarmupType
   cardioMin: number; cardioType: Machine
@@ -22,32 +25,32 @@ export interface PlannedDay { name: string; exercises: RoutineExercise[]; minute
 export interface Plan { title: string; days: PlannedDay[]; schedule: string; notes: string[] }
 
 const SLOTS: Record<string, string[]> = {
-  hpush: ['bench_press', 'db_bench_press', 'machine_chest_press'],
-  hpush2: ['incline_bench', 'incline_db_press', 'machine_chest_press'],
-  vpull: ['lat_pulldown', 'assisted_pull_up'],
-  vpull2: ['lat_pulldown_close', 'straight_arm_pulldown'],
-  hpull: ['barbell_row', 'chest_supported_row', 'seated_cable_row'],
-  hpull2: ['one_arm_db_row', 'seated_cable_row', 'incline_db_row'],
+  hpush: ['bench_press', 'db_bench_press', 'machine_chest_press', 'smith_incline', 'push_up'],
+  hpush2: ['incline_bench', 'incline_db_press', 'machine_chest_press', 'smith_incline', 'db_bench_press', 'push_up'],
+  vpull: ['lat_pulldown', 'assisted_pull_up', 'pull_up', 'one_arm_db_row'],
+  vpull2: ['lat_pulldown_close', 'straight_arm_pulldown', 'chin_up', 'pull_up'],
+  hpull: ['barbell_row', 'chest_supported_row', 'seated_cable_row', 'one_arm_db_row', 't_bar_row'],
+  hpull2: ['one_arm_db_row', 'seated_cable_row', 'incline_db_row', 'chest_supported_row', 'barbell_row'],
   vpush: ['ohp', 'seated_db_press', 'machine_shoulder_press', 'landmine_press'],
-  quad: ['squat', 'belt_squat', 'leg_press', 'leg_extension'],
-  quad2: ['bulgarian_split', 'leg_press_single', 'step_up', 'tke'],
+  quad: ['squat', 'belt_squat', 'leg_press', 'smith_squat', 'hack_squat', 'goblet_squat', 'leg_extension', 'bulgarian_split', 'lunge'],
+  quad2: ['bulgarian_split', 'leg_press_single', 'step_up', 'lunge', 'tke'],
   quadIso: ['leg_extension'],
   hinge: ['rdl', 'db_rdl', 'back_extension_45'],
-  glute: ['hip_thrust', 'hip_thrust_machine'],
-  hamIso: ['lying_leg_curl', 'seated_leg_curl'],
-  hamIso2: ['seated_leg_curl', 'lying_leg_curl'],
-  lateral: ['cable_lateral_raise', 'lateral_raise'],
-  lateral2: ['machine_lateral_raise', 'lateral_raise'],
-  rear: ['face_pull', 'rear_delt_fly'],
-  fly: ['cable_fly', 'pec_deck'],
-  biceps: ['incline_db_curl', 'db_curl'],
-  biceps2: ['hammer_curl', 'cable_curl'],
-  triceps: ['overhead_cable_ext', 'triceps_pushdown'],
-  triceps2: ['triceps_pushdown', 'db_overhead_ext'],
+  glute: ['hip_thrust', 'hip_thrust_machine', 'cable_kickback', 'glute_bridge'],
+  hamIso: ['lying_leg_curl', 'seated_leg_curl', 'db_rdl'],
+  hamIso2: ['seated_leg_curl', 'lying_leg_curl', 'db_rdl'],
+  lateral: ['cable_lateral_raise', 'lateral_raise', 'machine_lateral_raise'],
+  lateral2: ['machine_lateral_raise', 'lateral_raise', 'cable_lateral_raise'],
+  rear: ['face_pull', 'rear_delt_fly', 'db_rear_delt', 'band_pull_apart'],
+  fly: ['cable_fly', 'pec_deck', 'db_fly'],
+  biceps: ['incline_db_curl', 'db_curl', 'cable_curl', 'barbell_curl'],
+  biceps2: ['hammer_curl', 'preacher_curl', 'cable_curl', 'ez_curl'],
+  triceps: ['overhead_cable_ext', 'triceps_pushdown', 'db_overhead_ext', 'skull_crusher', 'dips'],
+  triceps2: ['triceps_pushdown', 'db_overhead_ext', 'skull_crusher', 'close_grip_bench'],
   calf: ['standing_calf', 'seated_calf', 'leg_press_calf'],
   core: ['pallof_press', 'dead_bug'],
   core2: ['side_plank', 'hanging_knee_raise', 'dead_bug'],
-  abduct: ['hip_abduction'],
+  abduct: ['hip_abduction', 'clamshell'],
   cardio: ['treadmill_incline', 'bike', 'elliptical']
 }
 const ISOLATION = new Set(['quadIso', 'hamIso', 'hamIso2', 'lateral', 'lateral2', 'rear', 'fly', 'biceps', 'biceps2', 'triceps', 'triceps2', 'calf', 'core', 'core2', 'abduct'])
@@ -70,14 +73,15 @@ const SCHEDULES: Record<number, string> = {
   5: 'Pazartesi · Salı · Çarşamba · Cuma · Cumartesi', 6: 'Pazartesi\'den Cumartesi\'ye, Pazar dinlenme'
 }
 
-function pick(slot: string, restrictions: Flag[]) {
-  const ok = SLOTS[slot].filter((id) => {
+function pick(slot: string, restrictions: Flag[], equipment?: Gear[] | null) {
+  const cands = SLOTS[slot].filter((id) => hasGear(id, equipment))
+  const ok = cands.filter((id) => {
     const ex = BUILTIN_EXERCISES.find((e) => e.id === id)
     return ex && !ex.flags.some((f) => restrictions.includes(f))
   })
   if (ok[0]) return ok[0]
   // Hepsi bir kısıta takılıyorsa en az takılanı seç; antrenmanda ağırlık önerisi temkinli olur.
-  const ranked = SLOTS[slot].map((id) => ({ id, n: BUILTIN_EXERCISES.find((e) => e.id === id)?.flags.filter((f) => restrictions.includes(f)).length ?? 9 })).sort((a, b) => a.n - b.n)
+  const ranked = cands.map((id) => ({ id, n: BUILTIN_EXERCISES.find((e) => e.id === id)?.flags.filter((f) => restrictions.includes(f)).length ?? 9 })).sort((a, b) => a.n - b.n)
   return ranked[0]?.id ?? null
 }
 
@@ -144,7 +148,7 @@ export function buildPlan(inp: WizardInput): Plan {
     let mins = 0
     for (const slot of tpl.slots) {
       if (ex.length >= maxCount) break
-      const id = pick(slot, inp.restrictions)
+      const id = pick(slot, inp.restrictions, inp.equipment)
       if (!id || ex.some((e) => e.exerciseId === id)) continue
       const i = ex.length
       const iso = ISOLATION.has(slot)
@@ -186,6 +190,7 @@ export function buildPlan(inp: WizardInput): Plan {
   if (inp.goal === 'yag' && !cardio) notes.push('Yağ yakımı hedefinde antrenman sonuna 15-20 dk kardiyo eklemek yağ kaybını hızlandırır.')
 
   if (inp.restrictions.length) notes.push(`Sağlık kısıtlarına (${inp.restrictions.map((f) => FLAG_INFO[f].short).join(', ')}) takılan hareketler yerine güvenli alternatifler seçildi.`)
+  if (inp.equipment) notes.push(inp.equipment.length ? `Ekipman kısıtına göre sadece şunlarla yapılabilen hareketler seçildi: ${inp.equipment.map((g) => GEAR.find((x) => x.v === g)?.l).join(', ')}. Uygun hareketi olmayan bölümler atlandı.` : 'Ekipman seçmediğin için sadece vücut ağırlığı ve lastik hareketleri seçildi.')
   if (inp.goal === 'yag') notes.push('Yağ yakımında kas kaybını önlemek için ağırlıkları düşürme; tekrar aralığını koru, kalori açığını beslenmeden yarat.')
   notes.push('İlerleme kuralı: bir hareketin tüm setlerinde tekrar aralığının üstüne çıktığında ağırlığı 2,5 kg (dambılda 1-2 kg) artır.')
 

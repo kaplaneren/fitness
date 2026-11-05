@@ -67,7 +67,7 @@ export default function FoodSearch({ day, meal, onClose }: { day: string; meal: 
             <FoodList foods={results} onPick={setPicked} />
             {q.trim().length > 1 && (
               <div className="stack">
-                <button className="btn" disabled={busy} onClick={searchOnline}>{busy ? 'Aranıyor…' : `"${q}" için markalı ürünlerde ara (Open Food Facts)`}</button>
+                <button className="btn wrap-btn" disabled={busy} onClick={searchOnline}>{busy ? 'Aranıyor…' : `"${q}" için markalı ürünlerde ara (Open Food Facts)`}</button>
                 {online && (online.length ? <FoodList foods={online} onPick={setPicked} /> : <p className="muted small">İnternette sonuç bulunamadı. "Yeni" sekmesinden etiketteki değerlerle ekleyebilirsin.</p>)}
               </div>
             )}
@@ -92,7 +92,7 @@ function FoodList({ foods, onPick }: { foods: Food[]; onPick: (f: Food) => void 
         <li key={f.id} onClick={() => onPick(f)}>
           <div className="stack grow" style={{ gap: 2 }}>
             <span className="title">{f.name}</span>
-            <span className="muted tiny">{f.brand ? f.brand + ' · ' : ''}100 g: P {f.p} · K {f.c} · Y {f.f}{f.source === 'off' ? ' · OFF' : f.source === 'user' ? ' · senin' : ''}</span>
+            <span className="muted tiny">{f.brand ? f.brand + ' · ' : ''}100 g: P {f.p} · K {f.c} · Y {f.f}{f.source === 'off' ? ' · OFF' : f.source === 'usda' ? ' · USDA' : f.source === 'user' ? ' · senin' : ''}</span>
           </div>
           <b className="mono small">{f.kcal}<span className="muted tiny"> kcal</span></b>
         </li>

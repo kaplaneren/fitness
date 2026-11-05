@@ -1,7 +1,9 @@
 import type { Food } from '../db'
+import { USDA_FOODS } from './foodsUsda'
 
 // Temel gıdalar ve Türk yemekleri, 100 g başına yaklaşık değerler.
-// Çiğ/temel gıdalar genel besin tablosu değerlerine (USDA, TÜRKOMP ile uyumlu) dayanır;
+// Çiğ/temel gıdalar genel besin tablosu değerlerine (USDA, TÜRKOMP ile uyumlu) dayanır; ek 230+ temel gıda
+// doğrudan USDA SR verisinden foodsUsda.ts içinde gelir;
 // yemekler standart ev tarifi üzerinden hesaplanmış tahminlerdir. Markalı ürünler uygulama içinde
 // barkodla Open Food Facts'ten çekilir veya elle eklenir.
 // [id, ad, kcal, protein, karbonhidrat, yağ, kategori, porsiyonlar "etiket:g|etiket:g"]
@@ -273,9 +275,12 @@ const R: Row[] = [
   ['kazein', 'Kazein protein tozu', 370, 75, 10, 3, 'Takviye', '1 ölçek:33']
 ]
 
-export const BASE_FOODS: Food[] = R.map(([id, name, kcal, p, c, f, cat, sv]) => ({
+const OWN: Food[] = R.map(([id, name, kcal, p, c, f, cat, sv]) => ({
   id: 'b_' + id, name, kcal, p, c, f, cat, source: 'base',
   servings: sv ? sv.split('|').map((x) => { const i = x.lastIndexOf(':'); return { label: x.slice(0, i), g: +x.slice(i + 1) } }) : undefined
 }))
 
-export const FOOD_CATEGORIES = [...new Set(R.map((r) => r[6]))]
+/** Kendi listemiz + USDA temel gıdaları (s_ önekli). */
+export const BASE_FOODS: Food[] = [...OWN, ...USDA_FOODS]
+
+export const FOOD_CATEGORIES = [...new Set(BASE_FOODS.map((f) => f.cat!))]

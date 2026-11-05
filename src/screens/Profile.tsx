@@ -7,6 +7,7 @@ import { useExercises, useProfile } from '../hooks'
 import { diaryCsv, importStrong, saveFile, shareFile, workoutsCsv } from '../lib/csv'
 import { fmtDate } from '../lib/calc'
 import { targets } from '../lib/nutrition'
+import EquipmentPicker from '../components/EquipmentPicker'
 import VersionFooter from '../components/VersionFooter'
 
 function Num({ id, label, value, onChange, step }: { id: string; label: string; value?: number; onChange: (v: number | undefined) => void; step?: string }) {
@@ -132,6 +133,11 @@ export default function ProfileScreen() {
             <span>{FLAG_INFO[f].label}</span>
           </label>
         ))}
+      </div>
+
+      <div className="card">
+        <h3>Ekipman</h3>
+        <EquipmentPicker value={profile.equipment} />
       </div>
 
       <div className="card">
