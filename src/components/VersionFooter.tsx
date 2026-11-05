@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.8.1', date: '5 Kasım 2026', items: [
+    'Türk mutfağından 225 yeni yemek: yöresel çorbalar, kebaplar, zeytinyağlılar, mezeler, börek ve poğaçalar, pideler, sokak lezzetleri, şerbetli ve sütlü tatlılar, yöresel peynirler'
+  ] },
   { v: '0.8.0', date: '5 Kasım 2026', items: [
     'Besin kütüphanesine USDA (ABD Tarım Bakanlığı) besin veritabanından 233 temel gıda eklendi: sebze, meyve, et, balık, peynir, tahıl, baklagil, kuruyemiş, yağ, baharat ve daha fazlası',
     'USDA kaynaklı gıdalar aramada "USDA" etiketiyle görünür, lif değeri de içerir',

@@ -1,5 +1,6 @@
 import type { Food } from '../db'
 import { USDA_FOODS } from './foodsUsda'
+import { TR_FOODS } from './foodsTr'
 
 // Temel gıdalar ve Türk yemekleri, 100 g başına yaklaşık değerler.
 // Çiğ/temel gıdalar genel besin tablosu değerlerine (USDA, TÜRKOMP ile uyumlu) dayanır; ek 230+ temel gıda
@@ -281,6 +282,6 @@ const OWN: Food[] = R.map(([id, name, kcal, p, c, f, cat, sv]) => ({
 }))
 
 /** Kendi listemiz + USDA temel gıdaları (s_ önekli). */
-export const BASE_FOODS: Food[] = [...OWN, ...USDA_FOODS]
+export const BASE_FOODS: Food[] = [...OWN, ...TR_FOODS, ...USDA_FOODS]
 
 export const FOOD_CATEGORIES = [...new Set(BASE_FOODS.map((f) => f.cat!))]
