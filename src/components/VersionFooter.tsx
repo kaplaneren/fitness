@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.11.0', date: '7 Kasım 2026', items: [
+    'Salon dışı aktiviteler: tenis, padel, yüzme, koşu, yürüyüş, bisiklet, doğa yürüyüşü, futbol, basketbol, yoga, pilates, boks, dans ve daha fazlası (Antrenman > Spor / aktivite ekle)',
+    'Aktivite kalorisi süre, kilo, yaş, boy ve cinsiyetten hesaplanıyor: Compendium MET değerleri, dinlenme metabolizması düşülerek; koşu, yürüyüş ve bisiklette mesafe girilirse hızdan. Nabız girilirse Keytel formülü',
+    'Aktiviteler Geçmiş\'te listeleniyor, günlük yakılan kaloriye ve haftalık antrenman sayısına ekleniyor; düzenlenebiliyor',
+    'Open Food Facts araması daha hızlı arama servisini kullanıyor, yanıt gelmezse eski aramaya geçiyor ve takılı kalmıyor; önizlemede neden çalışmadığı açıkça yazıyor'
+  ] },
   { v: '0.10.0', date: '5 Kasım 2026', items: [
     'Döngü (periyotlama): 3+1, 4+1 veya 5+1 hafta. Yükleme haftalarında hedef RIR haftadan haftaya azalır, son hafta planlı deload ile ağırlık ve setler otomatik düşer',
     'Program sihirbazında döngü seçimi; Profil\'de döngüyü açma, kapatma ve uzunluğunu değiştirme',

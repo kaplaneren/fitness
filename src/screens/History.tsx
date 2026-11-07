@@ -9,11 +9,14 @@ import { DAY, analyzeWorkout, bestE1rmByExercise, trend } from '../lib/analysis'
 import LineChart from '../components/LineChart'
 import { ExerciseDetail } from './Exercises'
 import { startWorkout } from '../lib/workout'
+import { activityMet } from '../lib/activity'
+import ActivitySheet from '../components/ActivitySheet'
 import type { Exercise } from '../data/exercises'
 import VersionFooter from '../components/VersionFooter'
 
 /** Antrenmanın paylaşılabilir metin özeti. */
 export function workoutText(w: Workout, map: Map<string, Exercise>) {
+  if (w.activity) return [`🏃 ${w.name} · ${fmtDate(w.startedAt, true)}`, `⏱ ${w.activity.min} dk${w.activity.km ? ` · ${fmtKg(w.activity.km)} km` : ''}`, ...(w.note ? ['', `Not: ${w.note}`] : []), '', 'Fitness uygulamasıyla kaydedildi'].join('\n')
   const lines = [`🏋️ ${w.name} · ${fmtDate(w.startedAt, true)}`, `⏱ ${fmtDuration((w.endedAt ?? w.startedAt) - w.startedAt)} · ${fmtKg(workoutVolume(w))} kg hacim · ${workoutSetCount(w)} set`, '']
   for (const e of w.exercises) {
     const sets = e.sets.filter((x) => x.type !== 'warmup').map((x) => (x.seconds != null && x.reps == null ? `${Math.round(x.seconds / 60)} dk` : `${x.weight ? fmtKg(x.weight) + '×' : ''}${x.reps ?? ''}${x.side ? (x.side === 'L' ? ' sol' : ' sağ') : ''}`))
@@ -168,6 +171,7 @@ export default function HistoryScreen({ onStarted }: { onStarted?: () => void })
 
 function WorkoutCard({ w, onClick, selecting, selected, onRepeat, onShare, onDelete }: { w: Workout; onClick: () => void; selecting: boolean; selected: boolean; onRepeat: () => void; onShare: () => void; onDelete: () => void }) {
   const { map } = useExercises()
+  const profile = useProfile()
   const [menu, setMenu] = useState(false)
   return (
     <div className={`card hist-card ${selected ? 'selected' : ''}`}>
@@ -177,14 +181,14 @@ function WorkoutCard({ w, onClick, selecting, selected, onRepeat, onShare, onDel
             {selecting && <span className={`sel-check ${selected ? 'on' : ''}`} aria-hidden="true">{selected ? '✓' : ''}</span>}
             <h3>{w.name}</h3>
           </div>
-          <span className="muted small">{fmtDate(w.startedAt, true)} · {fmtDuration((w.endedAt ?? w.startedAt) - w.startedAt)} · {fmtKg(workoutVolume(w))} kg · {workoutSetCount(w)} set</span>
+          <span className="muted small">{w.activity ? `${fmtDate(w.startedAt, true)} · ${w.activity.min} dk${w.activity.km ? ` · ${fmtKg(w.activity.km)} km` : ''} · ${workoutBurn(w, map, profile).kcal} kcal` : `${fmtDate(w.startedAt, true)} · ${fmtDuration((w.endedAt ?? w.startedAt) - w.startedAt)} · ${fmtKg(workoutVolume(w))} kg · ${workoutSetCount(w)} set`}</span>
         </button>
         {!selecting && <button className="icon-btn" aria-label="Seçenekler" onClick={() => setMenu(!menu)}>⋯</button>}
       </div>
       {menu && !selecting && (
         <div className="menu">
           <button onClick={() => { setMenu(false); onClick() }}>Detayı aç</button>
-          <button onClick={() => { setMenu(false); onRepeat() }}>Bu antrenmanı tekrarla</button>
+          {!w.activity && <button onClick={() => { setMenu(false); onRepeat() }}>Bu antrenmanı tekrarla</button>}
           <button onClick={() => { setMenu(false); onShare() }}>Paylaş</button>
           <button className="danger" onClick={() => { setMenu(false); onDelete() }}>Sil</button>
         </div>
@@ -202,7 +206,45 @@ function WorkoutCard({ w, onClick, selecting, selected, onRepeat, onShare, onDel
   )
 }
 
-export function WorkoutDetail({ w, onClose, justFinished, onStarted }: { w: Workout; onClose: () => void; justFinished?: boolean; onStarted?: () => void }) {
+type DetailProps = { w: Workout; onClose: () => void; justFinished?: boolean; onStarted?: () => void }
+export function WorkoutDetail(props: DetailProps) {
+  return props.w.activity ? <ActivityDetail w={props.w} onClose={props.onClose} /> : <GymDetail {...props} />
+}
+
+function ActivityDetail({ w, onClose }: { w: Workout; onClose: () => void }) {
+  const profile = useProfile()
+  const { map } = useExercises()
+  const [edit, setEdit] = useState(false)
+  const a = w.activity!
+  const burn = workoutBurn(w, map, profile)
+  const { met, from } = activityMet(a)
+  const remove = async () => { if (await ask('Bu aktivite silinsin mi?', { danger: true, ok: 'Sil' })) { await db.workouts.delete(w.id!); onClose() } }
+  if (edit) return <ActivitySheet w={w} onClose={() => { setEdit(false); onClose() }} />
+  return (
+    <div className="sheet">
+      <div className="sheet-head">
+        <button className="btn ghost" onClick={onClose}>Kapat</button>
+        <strong className="ellipsis">{w.name}</strong>
+        <button className="btn ghost" onClick={() => setEdit(true)}>Düzenle</button>
+      </div>
+      <div className="sheet-body">
+        <p className="muted">{fmtDate(w.startedAt, true)}</p>
+        <div className="stat-row">
+          <div className="stat"><b>{a.min}</b><span>dk</span></div>
+          {a.km ? <div className="stat"><b>{fmtKg(a.km)}</b><span>km</span></div> : null}
+          <div className="stat"><b>{burn.kcal}</b><span>kcal yakıldı</span></div>
+          {w.heartRateAvg && <div className="stat"><b>{w.heartRateAvg}</b><span>ort. nabız</span></div>}
+        </div>
+        <p className="muted tiny">{burn.method === 'hr' ? `Ortalama nabız (${w.heartRateAvg}), kilo, yaş ve cinsiyetten Keytel formülüyle hesaplandı; dinlenme metabolizması düşüldü.` : `MET ${met.toFixed(1)} (${from}), ${w.bodyweight ?? profile.bodyweight} kg, ${a.min} dk; yaş, boy ve cinsiyetten hesaplanan dinlenme metabolizması düşüldü. Tahminidir.`}</p>
+        {w.note && <div className="card"><p>{w.note}</p></div>}
+        <button className="btn block" onClick={() => shareText(workoutText(w, map), w.name)}>Paylaş</button>
+        <button className="btn danger block" onClick={remove}>Aktiviteyi sil</button>
+      </div>
+    </div>
+  )
+}
+
+function GymDetail({ w, onClose, justFinished, onStarted }: DetailProps) {
   const { map } = useExercises()
   const prs = useLiveQuery(async () => {
     const before = (await db.workouts.toArray()).filter((x) => x.startedAt < w.startedAt)

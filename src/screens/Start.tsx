@@ -12,6 +12,7 @@ import { MOBILITY_ROUTINES, startWorkout } from '../lib/workout'
 import RoutineEditor from './RoutineEditor'
 import Wizard from './Wizard'
 import MesoCard from '../components/MesoCard'
+import ActivitySheet from '../components/ActivitySheet'
 import ExerciseLibrary from './Exercises'
 import VersionFooter from '../components/VersionFooter'
 import { fmtDate } from '../lib/calc'
@@ -27,6 +28,7 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
   const { map } = useExercises()
   const [editing, setEditing] = useState<Routine | null>(null)
   const [wizard, setWizard] = useState(false)
+  const [activity, setActivity] = useState(false)
   const [library, setLibrary] = useState(false)
 
   const start = async (r?: Routine) => {
@@ -79,6 +81,7 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
           <button className="btn grow" onClick={() => setWizard(true)}>Program oluştur</button>
           <button className="btn grow" onClick={() => setLibrary(true)}>Hareketler</button>
         </div>
+        <button className="btn block" onClick={() => setActivity(true)}>+ Spor / aktivite ekle <span className="muted small">(tenis, yüzme, koşu…)</span></button>
         <button className="link small" onClick={importPasted}>Paylaşılan programı içe aktar</button>
       </div>
 
@@ -145,6 +148,7 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
       {qr && <QrSheet text={qr.text} title={qr.title} onClose={() => setQr(null)} />}
       {editing && <RoutineEditor routine={editing} onClose={() => setEditing(null)} />}
       {wizard && <Wizard onClose={() => setWizard(false)} />}
+      {activity && <ActivitySheet onClose={() => setActivity(false)} />}
       {library && <ExerciseLibrary onClose={() => setLibrary(false)} />}
     </div>
   )

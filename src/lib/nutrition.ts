@@ -69,31 +69,58 @@ export function normalizeTr(s: string) {
   return s.toLocaleLowerCase('tr').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
 }
 
+/** claude.ai önizlemesinde mi çalışıyoruz? Orada dış internete bağlantı tarayıcı tarafından engellenir. */
+export const inPreview = () => /claude\.ai$|claudeusercontent\.com$/.test(location.hostname) || (() => { try { return window.top !== window.self && /claude\.ai/.test(document.referrer) } catch { return true } })()
+
+const OFF_FIELDS = 'code,product_name,product_name_tr,brands,nutriments,serving_quantity,serving_size'
+
+/** Zaman aşımlı fetch: Open Food Facts bazen çok yavaş yanıt verir, sonsuza kadar beklemeyelim. */
+async function getJson(url: string, ms = 9000) {
+  const ctl = new AbortController()
+  const t = setTimeout(() => ctl.abort(), ms)
+  try {
+    const res = await fetch(url, { signal: ctl.signal, headers: { Accept: 'application/json' } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return await res.json()
+  } finally { clearTimeout(t) }
+}
+
 /** Open Food Facts'ten barkodla ürün getirir (telefonda internet varken). */
 export async function fetchOffProduct(barcode: string): Promise<Food | null> {
-  const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=code,product_name,product_name_tr,brands,nutriments,serving_quantity,serving_size`)
-  if (!res.ok) return null
-  const j = await res.json()
+  const code = encodeURIComponent(barcode)
+  let j
+  try { j = await getJson(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=${OFF_FIELDS}`) } catch (e) {
+    // Yedek: Türkiye alt alan adı aynı veritabanına gider
+    j = await getJson(`https://tr.openfoodfacts.org/api/v2/product/${code}.json?fields=${OFF_FIELDS}`).catch(() => { throw e })
+  }
   return j?.product ? offToFood(j.product) : null
 }
 
+/** Ürün adıyla arama. Önce yeni arama servisi (hızlı), sonuç yoksa veya hata verirse eski arama. */
 export async function searchOff(q: string): Promise<Food[]> {
-  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&json=1&page_size=30&countries_tags_en=turkey&fields=code,product_name,product_name_tr,brands,nutriments,serving_quantity,serving_size`
-  const res = await fetch(url)
-  if (!res.ok) return []
-  const j = await res.json()
-  return (j?.products ?? []).map(offToFood).filter(Boolean) as Food[]
+  const term = encodeURIComponent(q)
+  let firstErr: unknown = null
+  try {
+    const j = await getJson(`https://search.openfoodfacts.org/search?q=${term}&page_size=30&langs=tr,en&fields=${OFF_FIELDS}`)
+    const foods = (j?.hits ?? []).map(offToFood).filter(Boolean) as Food[]
+    if (foods.length) return foods
+  } catch (e) { firstErr = e }
+  try {
+    const j = await getJson(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${term}&search_simple=1&json=1&page_size=30&countries_tags_en=turkey&fields=${OFF_FIELDS}`, 15000)
+    return (j?.products ?? []).map(offToFood).filter(Boolean) as Food[]
+  } catch (e) { throw firstErr ?? e }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function offToFood(p: any): Food | null {
   const n = p.nutriments ?? {}
   const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g'] / 4.184 : undefined)
-  const name = p.product_name_tr || p.product_name
+  const pick = (v: unknown) => (typeof v === 'string' ? v : v && typeof v === 'object' ? Object.values(v as Record<string, string>)[0] : undefined)
+  const name = pick(p.product_name_tr) || pick(p.product_name)
   if (kcal == null || !name) return null
   const sq = Number(p.serving_quantity)
   return {
-    id: 'off_' + p.code, barcode: p.code, name, brand: (p.brands || '').split(',')[0]?.trim() || undefined,
+    id: 'off_' + p.code, barcode: p.code, name, brand: (Array.isArray(p.brands) ? p.brands.join(',') : p.brands || '').split(',')[0]?.trim() || undefined,
     kcal: Math.round(kcal), p: +(n.proteins_100g ?? 0), c: +(n.carbohydrates_100g ?? 0), f: +(n.fat_100g ?? 0), fiber: n.fiber_100g,
     servings: sq > 0 ? [{ label: p.serving_size || `1 porsiyon`, g: sq }] : undefined,
     source: 'off'

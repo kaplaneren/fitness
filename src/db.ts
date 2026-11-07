@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import { BUILTIN_EXERCISES, type Exercise, type Flag } from './data/exercises'
 import type { Gear } from './lib/equipment'
+import type { ActivityInfo } from './lib/activity'
 
 export type SetType = 'normal' | 'warmup' | 'drop' | 'failure'
 
@@ -40,6 +41,8 @@ export interface Workout {
   heartRateAvg?: number
   heartRateMax?: number
   bodyweight?: number
+  /** Salon dışı aktivite (tenis, yüzme, koşu...); varsa exercises boştur */
+  activity?: ActivityInfo
 }
 
 export interface RoutineExercise {

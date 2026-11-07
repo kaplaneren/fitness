@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { db, getKV, setKV, type DiaryEntry, type Food, type Meal, type MealTemplate } from '../db'
 import { BASE_FOODS, FOOD_CATEGORIES } from '../data/foods'
-import { MEALS, fetchOffProduct, normalizeTr, portion, searchOff } from '../lib/nutrition'
+import { MEALS, fetchOffProduct, inPreview, normalizeTr, portion, searchOff } from '../lib/nutrition'
 import { ask, notify } from '../components/Dialog'
 
 type Tab = 'ara' | 'son' | 'barkod' | 'yeni' | 'tarif' | 'sablon'
@@ -39,7 +39,7 @@ export default function FoodSearch({ day, meal, onClose }: { day: string; meal: 
   const searchOnline = async () => {
     if (!q.trim()) return
     setBusy(true)
-    try { setOnline(await searchOff(q.trim())) } catch { notify('İnternet aramasına ulaşılamadı. Bağlantını kontrol et; önizleme sürümünde internet araması kapalıdır.') }
+    try { setOnline(await searchOff(q.trim())) } catch { notify(inPreview() ? 'Bu önizleme claude.ai içinde açılıyor ve claude.ai güvenlik nedeniyle dış sitelere bağlanmayı engelliyor. Uygulamayı kendi adresinden (Cloudflare Pages) açınca internet araması çalışır.' : 'Open Food Facts\'e ulaşılamadı. Bağlantını kontrol et ya da biraz sonra tekrar dene; servis bazen yavaş yanıt veriyor.') }
     setBusy(false)
   }
 
@@ -232,7 +232,7 @@ function Barcode({ onFound }: { onFound: (f: Food) => void }) {
     try {
       const f = await fetchOffProduct(c)
       if (f) { setStatus(''); onFound(f) } else setStatus('Bu barkod veritabanında yok. "Yeni" sekmesinden etiketteki değerlerle ekleyebilirsin.')
-    } catch { setStatus('İnternete ulaşılamadı. Barkodlu ürünleri aramak için bağlantı gerekiyor.') }
+    } catch { setStatus(inPreview() ? 'Önizlemede (claude.ai) dış bağlantılar engelli; uygulamayı kendi adresinden açınca barkod araması çalışır.' : 'Open Food Facts\'e ulaşılamadı. Bağlantını kontrol edip tekrar dene.') }
   }
 
   const start = async () => {

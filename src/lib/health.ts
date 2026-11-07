@@ -2,6 +2,7 @@ import type { Exercise } from '../data/exercises'
 import type { Checkin, Profile, Workout } from '../db'
 import { DAY } from './analysis'
 import { todayKey } from './nutrition'
+import { activityKcal } from './activity'
 
 /* ---------- Hazır olma skoru ---------- */
 // Uyku süresi ve kalitesi, enerji, kas ağrısı, stres ve eklem ağrısından 0-100 arası skor.
@@ -102,6 +103,10 @@ export function deloadAdvice(workouts: Workout[], checkins: Checkin[], plateauCo
 // Ağırlık antrenmanı ve kardiyo için saatlik aktif kalori (profilden, varsayılan 380 / 500 kcal).
 export function workoutBurn(w: Workout, exMap: Map<string, Exercise>, profile: Profile, now = Date.now()) {
   const totalMin = Math.max(0, ((w.endedAt ?? now) - w.startedAt) / 60000)
+  if (w.activity && !(w.heartRateAvg && w.heartRateAvg >= 80)) {
+    const kcal = activityKcal(w.activity, profile, w.bodyweight ?? profile.bodyweight)
+    return { weightMin: 0, cardioMin: w.activity.min, weights: 0, cardio: kcal, kcal, method: 'met' as const }
+  }
   const cardioMin = Math.min(totalMin, w.exercises
     .filter((e) => exMap.get(e.exerciseId)?.kind === 'time' && exMap.get(e.exerciseId)?.equipment !== 'bodyweight')
     .reduce((a, e) => a + e.sets.filter((s) => s.done !== false).reduce((b, s) => b + (s.seconds ?? 0), 0) / 60, 0))
@@ -115,6 +120,7 @@ export function workoutBurn(w: Workout, exMap: Map<string, Exercise>, profile: P
       : (-55.0969 + 0.6309 * hr + 0.1988 * kg + 0.2017 * age) / 4.184
     const bmr = 10 * kg + 6.25 * profile.height - 5 * age + (profile.sex === 'm' ? 5 : -161)
     const active = Math.max(0, perMin - bmr / 1440)
+    if (w.activity) { const k = active * w.activity.min; return { weightMin: 0, cardioMin: w.activity.min, weights: 0, cardio: k, kcal: Math.round(k), method: 'hr' as const } }
     const weights = active * weightMin, cardio = active * cardioMin
     return { weightMin, cardioMin, weights, cardio, kcal: Math.round(weights + cardio), method: 'hr' as const }
   }
