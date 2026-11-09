@@ -2,8 +2,11 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.12.2', date: '9 Kasım 2026', items: [
+    'Haftalık kıyas gün bazında: bugünün antrenmanı da sayılıyor, geçen haftanın aynı gününün tamamıyla kıyaslanıyor; hafta sürerken yanıltıcı artı/eksi okları gösterilmiyor'
+  ] },
   { v: '0.12.1', date: '9 Kasım 2026', items: [
-    'Haftalık rapor: her kutuda geçen haftanın değeri yazıyor ("yok" yerine); süren haftada geçen haftanın aynı dönemi ve toplamı ayrı ayrı',
+    'Haftalık rapor: her kutuda geçen haftanın değeri yazıyor ("yok" yerine). Hafta sürerken ok gösterilmiyor; geçen haftanın toplamı ve aynı güne kadarki değeri (saat değil gün bazında) yazıyor',
     'Devamlılık takviminde 3 ve üzeri antrenmanlı haftalar yeşil; ay etiketleri artık üst üste binmiyor',
     'Kas haritası: az çalışan açık sarı, hedefe yaklaştıkça turuncu, hedefe ulaşınca kırmızı',
     'Güç haritası ve seviye çubukları her seviye için ayrı renkte (Başlangıç açık sarı → Elit bordo); koyu/açık mavi karışıklığı kalktı',

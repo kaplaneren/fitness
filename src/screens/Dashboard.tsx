@@ -29,7 +29,8 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
   // Takvim haftası (pazartesiden bugüne); son 7 gün geçen haftanın antrenmanlarını da sayıp yanıltıyordu
   const weekStart = mondayOf(Date.now())
   const thisWeek = workouts.filter((w) => w.startedAt >= weekStart)
-  const lastSoFar = workouts.filter((w) => w.startedAt >= weekStart - 7 * DAY && w.startedAt < Date.now() - 7 * DAY)
+  const daysIn = Math.floor((Date.now() - weekStart) / DAY) + 1
+  const lastSoFar = workouts.filter((w) => w.startedAt >= weekStart - 7 * DAY && w.startedAt < weekStart - 7 * DAY + daysIn * DAY)
   const sets = muscleSets(workouts, map, weekStart)
   const levels = Object.fromEntries((Object.keys(WEEKLY_RANGE) as Muscle[]).map((m) => [m, (sets[m] ?? 0) / Math.max(1, WEEKLY_RANGE[m][1])]))
   const sp = strengthProfile(workouts, profile.bodyweight, profile.sex)
@@ -135,8 +136,8 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
       </button>
 
       <div className="stat-row">
-        <div className="stat"><b>{thisWeek.reduce((a, w) => a + workoutSetCount(w), 0)}</b><span>set bu hafta · geçen hafta bu zamana {lastSoFar.reduce((a, w) => a + workoutSetCount(w), 0)}</span></div>
-        <div className="stat"><b>{fmtKg(thisWeek.reduce((a, w) => a + workoutVolume(w), 0) / 1000)}</b><span>ton hacim · geçen hafta bu zamana {fmtKg(lastSoFar.reduce((a, w) => a + workoutVolume(w), 0) / 1000)}</span></div>
+        <div className="stat"><b>{thisWeek.reduce((a, w) => a + workoutSetCount(w), 0)}</b><span>set bu hafta · geçen hafta aynı güne kadar {lastSoFar.reduce((a, w) => a + workoutSetCount(w), 0)}</span></div>
+        <div className="stat"><b>{fmtKg(thisWeek.reduce((a, w) => a + workoutVolume(w), 0) / 1000)}</b><span>ton hacim · geçen hafta aynı güne kadar {fmtKg(lastSoFar.reduce((a, w) => a + workoutVolume(w), 0) / 1000)}</span></div>
       </div>
 
       <button className="card" onClick={() => go('progress')}>

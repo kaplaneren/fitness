@@ -216,7 +216,8 @@ export function weeklyReport(weekStart: number, workouts: Workout[], diary: Diar
   const inW = (t: number, s: number) => t >= s && t < s + 7 * DAY
   // Süren hafta, geçen haftanın aynı dönemiyle (pazartesiden aynı gün ve saate kadar) kıyaslanır; yoksa pazartesi her şey "düşüş" görünür
   const partial = end > Date.now()
-  const elapsed = partial ? Math.max(0, Date.now() - weekStart) : 7 * DAY
+  // Gün bazında: pazartesiden bugünün sonuna kadar (saat değil); bugün geçen haftanın aynı gününün tamamıyla kıyaslanır
+  const elapsed = partial ? Math.min(7, Math.floor((Date.now() - weekStart) / DAY) + 1) * DAY : 7 * DAY
   const cur = workouts.filter((w) => inW(w.startedAt, weekStart)), prev = workouts.filter((w) => w.startedAt >= prevStart && w.startedAt < prevStart + elapsed)
   const stat = (ws: Workout[]) => ({
     n: ws.length, sets: ws.reduce((a, w) => a + workoutSetCount(w), 0), vol: ws.reduce((a, w) => a + workoutVolume(w), 0),

@@ -11,15 +11,22 @@ import { ExerciseDetail } from './Exercises'
 import { DeloadCard } from './Health'
 import { workoutBurn } from '../lib/health'
 
-/** Geçen haftanın değeri her zaman yazılır; süren haftada "bu zamana kadar" ile kıyaslanır, altında geçen haftanın toplamı. */
+/** Biten haftada ok + geçen haftanın değeri. Süren haftada ok yok (yarım hafta tam haftayla kıyaslanmaz):
+ *  geçen haftanın toplamı ve geçen haftanın aynı güne kadarki değeri yazılır. */
 function Delta({ cur, prev, full, partial, unit = '', digits = 0, invert = false }: { cur: number; prev: number; full?: number; partial?: boolean; unit?: string; digits?: number; invert?: boolean }) {
+  const f = (x: number) => fmtNum(x, digits)
+  if (partial) return (
+    <>
+      <span className="muted tiny">geçen hafta: {f(full ?? prev)}{unit}</span>
+      <span className="muted tiny">aynı güne kadar: {f(prev)}{unit}</span>
+    </>
+  )
   const d = cur - prev
   const good = invert ? d < 0 : d > 0
-  const f = (x: number) => fmtNum(x, digits)
   return (
     <>
       <span className={`tiny ${d === 0 ? 'muted' : good ? 'good' : 'warn'}`}>{d > 0 ? '▲' : d < 0 ? '▼' : '='} {f(Math.abs(d))}{unit}</span>
-      <span className="muted tiny">geçen: {f(prev)}{partial && full != null ? ` / ${f(full)}` : ''}</span>
+      <span className="muted tiny">geçen hafta: {f(prev)}{unit}</span>
     </>
   )
 }
@@ -52,7 +59,7 @@ export function WeeklyReport() {
         <strong>{offset === 0 ? 'Bu hafta' : offset === 1 ? 'Geçen hafta' : range}</strong>
         <button className="icon-btn" aria-label="Sonraki hafta" disabled={offset === 0} style={{ opacity: offset === 0 ? 0.3 : 1 }} onClick={() => setOffset(offset - 1)}>›</button>
       </div>
-      <p className="muted tiny center">{range} · {r.partial ? 'oklar geçen haftanın aynı dönemine göre; "geçen: bu zamana / tüm hafta"' : 'geçen haftayla kıyas'}</p>
+      <p className="muted tiny center">{range} · {r.partial ? 'hafta sürüyor; geçen haftanın toplamı ve aynı güne kadarki değeri altta' : 'geçen haftayla kıyas'}</p>
 
       <div className="stat-row">
         <div className="stat"><b>{r.a.n}<span className="muted" style={{ fontSize: 16 }}>/{profile.weeklyTarget}</span></b><span>antrenman</span><Delta cur={r.a.n} prev={r.b.n} full={r.bFull.n} partial={r.partial} /></div>
