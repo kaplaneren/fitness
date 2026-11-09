@@ -40,14 +40,27 @@ const BACK: Part[] = [
 
 export type MuscleLevels = Partial<Record<Muscle, number>>
 
-export default function BodyMap({ primary = [], secondary = [], levels, onPick, selected }: {
-  primary?: Muscle[]; secondary?: Muscle[]; levels?: MuscleLevels; onPick?: (m: Muscle) => void; selected?: Muscle | null
+/** Güç seviyesi renkleri (Başlangıç → Elit). */
+export const LEVEL_COLORS = ['var(--lv0)', 'var(--lv1)', 'var(--lv2)', 'var(--lv3)', 'var(--lv4)']
+const PCTS = [5, 20, 50, 80, 95]
+
+/** Haftalık hacim rengi: az çalışan açık sarı, hedefe yaklaştıkça turuncu, hedefe ulaşınca kırmızı.
+ *  v = set / hedef aralığının üstü; alt sınır genelde üst sınırın yarısı olduğundan 0,5'te tam kırmızı. */
+export function heatColor(v: number) {
+  if (v <= 0) return 'var(--muscle)'
+  const t = Math.round(Math.min(1, v / 0.5) * 100)
+  return `color-mix(in oklab, var(--heat-hi) ${t}%, var(--heat-lo))`
+}
+
+export default function BodyMap({ primary = [], secondary = [], levels, scale = 'volume', onPick, selected }: {
+  primary?: Muscle[]; secondary?: Muscle[]; levels?: MuscleLevels; scale?: 'volume' | 'strength'; onPick?: (m: Muscle) => void; selected?: Muscle | null
 }) {
   const fill = (m: Muscle) => {
     if (levels) {
       const v = levels[m] ?? 0
       if (v <= 0) return 'var(--muscle)'
-      return `color-mix(in srgb, var(--accent) ${Math.round(25 + Math.min(1, v) * 75)}%, var(--muscle))`
+      if (scale === 'strength') { let i = 0; for (let k = 0; k < PCTS.length; k++) if (v * 100 >= PCTS[k]) i = k; return LEVEL_COLORS[i] }
+      return heatColor(v)
     }
     if (selected === m || primary.includes(m)) return 'var(--accent)'
     if (secondary.includes(m)) return 'color-mix(in srgb, var(--accent) 40%, var(--muscle))'

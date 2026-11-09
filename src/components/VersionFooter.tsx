@@ -2,6 +2,14 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.12.1', date: '9 Kasım 2026', items: [
+    'Haftalık rapor: her kutuda geçen haftanın değeri yazıyor ("yok" yerine); süren haftada geçen haftanın aynı dönemi ve toplamı ayrı ayrı',
+    'Devamlılık takviminde 3 ve üzeri antrenmanlı haftalar yeşil; ay etiketleri artık üst üste binmiyor',
+    'Kas haritası: az çalışan açık sarı, hedefe yaklaştıkça turuncu, hedefe ulaşınca kırmızı',
+    'Güç haritası ve seviye çubukları her seviye için ayrı renkte (Başlangıç açık sarı → Elit bordo); koyu/açık mavi karışıklığı kalktı',
+    'Temel çiğ besinler: dana eti (orta yağlı / yağsız), antrikot, but, ciğer, derili tavuk göğsü, kanat, tavuk kıyma, kuzu pirzola ve kıyma, levrek, çipura, alabalık, uskumru, soğan, toz şeker, nişasta, pirinç / galeta / çavdar / nohut / yulaf / badem unu, kuru maya',
+    'Besin araması esnek: kelime sırası ve Türkçe ekler önemli değil ("çiğ dana eti", "çiğ göğüs", "un" bulur), en uygun sonuç üstte'
+  ] },
   { v: '0.12.0', date: '9 Kasım 2026', items: [
     'Hiç yapmadığın harekette başlangıç ağırlığı öneriliyor: o bölgedeki güç seviyen (yoksa genel seviyen) strengthlevel standartlarına göre tahmini 1RM\'ye çevrilip 3 tekrar yedekte kalacak ağırlık hesaplanıyor; standardı olmayan 45 hareket benzer hareketin oranıyla',
     'Biten antrenmanda "Devam et": antrenman yeniden açılır, hareket ve set ekleyip tekrar bitirebilirsin',

@@ -6,7 +6,7 @@ import { useExercises, useProfile } from '../hooks'
 import { mondayOf } from '../lib/insights'
 import { DAY, LEVELS, WEEKLY_RANGE, bestE1rmByExercise, ffmi, hasStandard, levelIndex, levelOf, liftScore, muscleSets, strengthProfile, volumeStatus } from '../lib/analysis'
 import { fmtDate, fmtKg, workoutVolume, fmtNum } from '../lib/calc'
-import BodyMap from '../components/BodyMap'
+import BodyMap, { LEVEL_COLORS, heatColor } from '../components/BodyMap'
 import LineChart, { Bars } from '../components/LineChart'
 import ExerciseLibrary, { ExerciseDetail } from './Exercises'
 import { HealthView } from './Health'
@@ -82,8 +82,8 @@ function Strength() {
       {sp.covered > 0 && (
         <div className="card">
           <h3>Bölgelere göre güç</h3>
-          <BodyMap levels={levels} />
-          <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Ölçülmedi</span><span><i style={{ background: 'color-mix(in srgb, var(--accent) 50%, var(--muscle))' }} />Orta</span><span><i style={{ background: 'var(--accent)' }} />Güçlü</span></div>
+          <BodyMap levels={levels} scale="strength" />
+          <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Ölçülmedi</span>{LEVELS.map((l, i) => <span key={l}><i style={{ background: LEVEL_COLORS[i] }} />{l}</span>)}</div>
           {sp.regions.map((r) => (
             <button key={r.name} className="stack" style={{ gap: 4, textAlign: 'left', padding: '6px 0', borderTop: '1px solid var(--line)' }} onClick={() => r.id && setOpen(r.id)}>
               <div className="row-between"><b>{r.name}</b>{r.score ? <span className="pill">{levelOf(r.score)} · {Math.round(r.score)}</span> : <span className="muted tiny">kayıt yok</span>}</div>
@@ -131,7 +131,7 @@ export function LevelScale({ p }: { p: number }) {
   const li = levelIndex(p)
   return (
     <div className="stack" style={{ gap: 3 }}>
-      <div className="level-scale">{[0, 1, 2, 3, 4].map((i) => <div key={i} className={i <= li ? 'on' : ''} />)}</div>
+      <div className="level-scale">{[0, 1, 2, 3, 4].map((i) => <div key={i} className={i <= li ? `on l${i}` : ''} />)}</div>
       <div className="level-scale" style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--ink-2)' }}>{LEVELS.map((l) => <span key={l} style={{ textAlign: 'center' }}>{l}</span>)}</div>
     </div>
   )
@@ -166,7 +166,7 @@ function Muscles() {
           </div>
         </div>
         <BodyMap levels={levels} onPick={(m) => setLib(m)} />
-        <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Çalışmadı</span><span><i style={{ background: 'color-mix(in srgb, var(--accent) 45%, var(--muscle))' }} />Az</span><span><i style={{ background: 'var(--accent)' }} />Hedefe ulaştı</span></div>
+        <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Çalışmadı</span><span><i style={{ background: 'var(--heat-lo)' }} />Az</span><span><i style={{ background: heatColor(0.3) }} />Hedefe yakın</span><span><i style={{ background: 'var(--heat-hi)' }} />Hedefe ulaştı</span></div>
         <p className="muted tiny">{current ? `Pazartesiden bugüne (${dayOfWeek}. gün). ` : range === 'last' ? 'Geçen hafta pazartesi-pazar. ' : 'Bitmiş son 4 takvim haftasının haftalık ortalaması. '}Bir kasa dokunursan o kası çalıştıran hareketler açılır.</p>
       </div>
 

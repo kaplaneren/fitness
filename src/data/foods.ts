@@ -273,7 +273,32 @@ const R: Row[] = [
   // TAKVİYE
   ['whey', 'Whey protein tozu (ortalama)', 390, 76, 8, 6, 'Takviye', '1 ölçek:30'],
   ['kreatin', 'Kreatin monohidrat', 0, 0, 0, 0, 'Takviye', '1 ölçek:5'],
-  ['kazein', 'Kazein protein tozu', 370, 75, 10, 3, 'Takviye', '1 ölçek:33']
+  ['kazein', 'Kazein protein tozu', 370, 75, 10, 3, 'Takviye', '1 ölçek:33'],
+  // TEMEL ÇİĞ GIDALAR (USDA SR değerlerine yakın, 100 g çiğ ağırlık)
+  ['dana_eti_cig', 'Dana eti (çiğ, orta yağlı)', 215, 18.5, 0, 15, 'Et, tavuk, balık', '100 g:100|1 porsiyon:150'],
+  ['dana_eti_yagsiz_cig', 'Dana eti (çiğ, yağsız)', 136, 21.5, 0, 5, 'Et, tavuk, balık', '100 g:100|1 porsiyon:150'],
+  ['dana_antrikot_cig', 'Dana antrikot (çiğ)', 200, 19.5, 0, 13.5, 'Et, tavuk, balık', '1 dilim:200'],
+  ['dana_but_cig', 'Dana but / nuar (çiğ)', 133, 22.5, 0, 4.2, 'Et, tavuk, balık', '100 g:100'],
+  ['dana_ciger_cig', 'Dana ciğer (çiğ)', 135, 20.4, 3.9, 3.6, 'Et, tavuk, balık', '100 g:100'],
+  ['tavuk_gogus_derili_cig', 'Tavuk göğsü (derili, çiğ)', 172, 20.9, 0, 9.3, 'Et, tavuk, balık', '1 adet:200'],
+  ['tavuk_kanat_cig', 'Tavuk kanat (derili, çiğ)', 191, 17.5, 0, 12.8, 'Et, tavuk, balık', '1 adet:45'],
+  ['tavuk_kiyma_cig', 'Tavuk kıyma (çiğ)', 143, 17.4, 0, 8.1, 'Et, tavuk, balık', '100 g:100'],
+  ['kuzu_pirzola_cig', 'Kuzu pirzola (çiğ)', 280, 17, 0, 23, 'Et, tavuk, balık', '1 adet:70'],
+  ['kuzu_kiyma_cig', 'Kuzu kıyma (çiğ)', 282, 16.6, 0, 23.4, 'Et, tavuk, balık', '100 g:100'],
+  ['levrek_cig', 'Levrek (çiğ)', 97, 18.4, 0, 2, 'Et, tavuk, balık', '1 fileto:120'],
+  ['cipura_cig', 'Çipura (çiğ)', 115, 19.5, 0, 4, 'Et, tavuk, balık', '1 fileto:120'],
+  ['alabalik_cig', 'Alabalık (çiğ)', 141, 19.9, 0, 6.2, 'Et, tavuk, balık', '1 fileto:120'],
+  ['uskumru_cig', 'Uskumru (çiğ)', 205, 18.6, 0, 13.9, 'Et, tavuk, balık', '1 fileto:120'],
+  ['sogan_cig', 'Soğan (çiğ)', 40, 1.1, 9.3, 0.1, 'Sebze', '1 orta boy:110'],
+  ['toz_seker', 'Toz şeker', 387, 0, 100, 0, 'Tahıl ve ekmek', '1 tatlı kaşığı:5|1 yemek kaşığı:12'],
+  ['nisasta', 'Mısır nişastası', 381, 0.3, 91.3, 0.1, 'Tahıl ve ekmek', '1 yemek kaşığı:8'],
+  ['pirinc_unu', 'Pirinç unu', 366, 5.9, 80.1, 1.4, 'Tahıl ve ekmek', '1 yemek kaşığı:10|1 su bardağı:160'],
+  ['galeta_unu', 'Galeta unu', 395, 13.4, 71.9, 5.3, 'Tahıl ve ekmek', '1 yemek kaşığı:10'],
+  ['cavdar_unu', 'Çavdar unu', 325, 10.9, 68.6, 2.5, 'Tahıl ve ekmek', '1 su bardağı:110'],
+  ['nohut_unu', 'Nohut unu', 387, 22.4, 57.8, 6.7, 'Tahıl ve ekmek', '1 su bardağı:90'],
+  ['yulaf_unu', 'Yulaf unu', 404, 14.7, 65.7, 9.1, 'Tahıl ve ekmek', '1 su bardağı:100'],
+  ['badem_unu', 'Badem unu', 571, 21, 21, 50, 'Kuruyemiş', '1 yemek kaşığı:7'],
+  ['kuru_maya', 'Kuru maya', 325, 40.4, 41.2, 7.6, 'Tahıl ve ekmek', '1 paket:10'],
 ]
 
 const OWN: Food[] = R.map(([id, name, kcal, p, c, f, cat, sv]) => ({

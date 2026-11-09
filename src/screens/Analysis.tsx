@@ -11,11 +11,17 @@ import { ExerciseDetail } from './Exercises'
 import { DeloadCard } from './Health'
 import { workoutBurn } from '../lib/health'
 
-function Delta({ cur, prev, unit = '', digits = 0, invert = false }: { cur: number; prev: number; unit?: string; digits?: number; invert?: boolean }) {
-  if (!prev) return <span className="muted tiny">geçen hafta yok</span>
+/** Geçen haftanın değeri her zaman yazılır; süren haftada "bu zamana kadar" ile kıyaslanır, altında geçen haftanın toplamı. */
+function Delta({ cur, prev, full, partial, unit = '', digits = 0, invert = false }: { cur: number; prev: number; full?: number; partial?: boolean; unit?: string; digits?: number; invert?: boolean }) {
   const d = cur - prev
   const good = invert ? d < 0 : d > 0
-  return <span className={`tiny ${d === 0 ? 'muted' : good ? 'good' : 'warn'}`}>{d > 0 ? '▲' : d < 0 ? '▼' : '='} {fmtNum(Math.abs(d), digits)}{unit}</span>
+  const f = (x: number) => fmtNum(x, digits)
+  return (
+    <>
+      <span className={`tiny ${d === 0 ? 'muted' : good ? 'good' : 'warn'}`}>{d > 0 ? '▲' : d < 0 ? '▼' : '='} {f(Math.abs(d))}{unit}</span>
+      <span className="muted tiny">geçen: {f(prev)}{partial && full != null ? ` / ${f(full)}` : ''}</span>
+    </>
+  )
 }
 
 export function WeeklyReport() {
@@ -35,7 +41,8 @@ export function WeeklyReport() {
   const tdee = adaptiveTdee(diary, ms)
   const t = targets(profile)
   const burnOf = (s0: number) => workouts.filter((w) => w.startedAt >= s0 && w.startedAt < s0 + 7 * DAY).reduce((a, w) => a + workoutBurn(w, map, profile).kcal, 0)
-  const burnA = burnOf(weekStart), burnB = burnOf(weekStart - 7 * DAY)
+  const burnOfUntil = (s0: number, len: number) => workouts.filter((w) => w.startedAt >= s0 && w.startedAt < s0 + len).reduce((a, w) => a + workoutBurn(w, map, profile).kcal, 0)
+  const burnA = burnOf(weekStart), burnB = burnOfUntil(weekStart - 7 * DAY, r.elapsed), burnBFull = burnOf(weekStart - 7 * DAY)
   const range = `${new Date(weekStart).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} – ${new Date(weekStart + 6 * DAY).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}`
 
   return (
@@ -45,14 +52,14 @@ export function WeeklyReport() {
         <strong>{offset === 0 ? 'Bu hafta' : offset === 1 ? 'Geçen hafta' : range}</strong>
         <button className="icon-btn" aria-label="Sonraki hafta" disabled={offset === 0} style={{ opacity: offset === 0 ? 0.3 : 1 }} onClick={() => setOffset(offset - 1)}>›</button>
       </div>
-      <p className="muted tiny center">{range} · {r.partial ? 'geçen haftanın aynı günlerine göre' : 'geçen haftayla kıyas'}</p>
+      <p className="muted tiny center">{range} · {r.partial ? 'oklar geçen haftanın aynı dönemine göre; "geçen: bu zamana / tüm hafta"' : 'geçen haftayla kıyas'}</p>
 
       <div className="stat-row">
-        <div className="stat"><b>{r.a.n}<span className="muted" style={{ fontSize: 16 }}>/{profile.weeklyTarget}</span></b><span>antrenman</span><Delta cur={r.a.n} prev={r.b.n} /></div>
-        <div className="stat"><b>{r.a.sets}</b><span>set</span><Delta cur={r.a.sets} prev={r.b.sets} /></div>
-        <div className="stat"><b>{fmtKg(r.a.vol / 1000)}</b><span>ton hacim</span><Delta cur={r.a.vol / 1000} prev={r.b.vol / 1000} digits={1} unit=" t" /></div>
-        <div className="stat"><b>{Math.round(r.a.mins)}</b><span>dk / antrenman</span><Delta cur={r.a.mins} prev={r.b.mins} unit=" dk" invert /></div>
-        <div className="stat"><b>{burnA}</b><span>kcal yakıldı</span><Delta cur={burnA} prev={burnB} unit=" kcal" /></div>
+        <div className="stat"><b>{r.a.n}<span className="muted" style={{ fontSize: 16 }}>/{profile.weeklyTarget}</span></b><span>antrenman</span><Delta cur={r.a.n} prev={r.b.n} full={r.bFull.n} partial={r.partial} /></div>
+        <div className="stat"><b>{r.a.sets}</b><span>set</span><Delta cur={r.a.sets} prev={r.b.sets} full={r.bFull.sets} partial={r.partial} /></div>
+        <div className="stat"><b>{fmtKg(r.a.vol / 1000)}</b><span>ton hacim</span><Delta cur={r.a.vol / 1000} prev={r.b.vol / 1000} full={r.bFull.vol / 1000} partial={r.partial} digits={1} unit=" t" /></div>
+        <div className="stat"><b>{Math.round(r.a.mins)}</b><span>dk / antrenman</span><Delta cur={r.a.mins} prev={r.b.mins} full={r.bFull.mins} partial={r.partial} unit=" dk" invert /></div>
+        <div className="stat"><b>{burnA}</b><span>kcal yakıldı</span><Delta cur={burnA} prev={burnB} full={burnBFull} partial={r.partial} unit=" kcal" /></div>
       </div>
       <div className="stat-row">
         <div className="stat"><b>{r.avgKcal != null ? Math.round(r.avgKcal) : '–'}</b><span>ort. kcal (hedef {t.kcal})</span></div>

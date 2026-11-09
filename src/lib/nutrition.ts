@@ -69,6 +69,44 @@ export function normalizeTr(s: string) {
   return s.toLocaleLowerCase('tr').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
 }
 
+// Arama: kelimelerin hepsi geçmeli ama Türkçe ekler ve dolgu kelimeleri esnek. "çiğ dana eti" → "Dana eti (çiğ…)",
+// "çiğ göğüs" → "Tavuk göğsü (çiğ)", "un" → "Buğday unu". Sonuçlar ada göre sıralanır: başı eşleşen ve kısa adlar önce.
+const STOP = new Set(['eti', 'et', 'adet', 'gr', 'g', 'gram', 'tane', 've', 'ile'])
+const stem = (w: string) => (w.length >= 5 ? w.slice(0, w.length - 2) : w)
+const BASIC = new Set(['Tahıl ve ekmek', 'Et, tavuk, balık', 'Sebze', 'Meyve', 'Süt ürünleri', 'Baklagil', 'Kuruyemiş', 'Yağ ve sos', 'Kahvaltılık'])
+export function foodQuery(q: string) {
+  const words = normalizeTr(q.trim()).split(/[\s,]+/).filter(Boolean)
+  const kept = words.filter((w) => !STOP.has(w))
+  return { must: kept.length ? kept : words, soft: kept.length ? words.filter((w) => STOP.has(w)) : [] }
+}
+export function foodScore(name: string, q: { must: string[]; soft: string[] }, cat?: string) {
+  if (!q.must.length) return 0
+  const n = normalizeTr(name)
+  let score = 0
+  for (const w of q.must) {
+    // Kelime başında ve kelime sonu (veya kısa ek: unu, göğsü) olan eşleşme en değerli; "çiğ" "ciğer" içinde zayıf sayılır
+    let best = -1
+    // Önce kelimenin tamamı, bulunamazsa eki atılmış kökü (göğüs → göğsü) aranır; tam eşleşme daha değerli
+    for (const [term, bonus] of [[w, 2], [stem(w), 0]] as [string, number][]) {
+      for (let i = n.indexOf(term); i >= 0; i = n.indexOf(term, i + 1)) {
+        const startOk = i === 0 || /[\s(,/]/.test(n[i - 1])
+        const rest = n.slice(i + term.length).match(/^[a-z]*/)![0]
+        const endOk = rest.length <= 2
+        best = Math.max(best, (startOk ? 2 : 0) + (endOk ? 2 : 0) + 1 + bonus)
+      }
+      if (best >= 0) break
+    }
+    if (best < 0) return -1
+    score += best
+  }
+  for (const w of q.soft) if (new RegExp(`(^|[\\s(])${w}([\\s,)]|$)`).test(n)) score += 2
+  return score * 100 + (cat && BASIC.has(cat) ? 50 : 0) - n.length
+}
+export function searchFoods<T extends { name: string; brand?: string; cat?: string }>(list: T[], q: string, limit = 120) {
+  const query = foodQuery(q)
+  return list.map((f) => ({ f, s: foodScore(`${f.name} ${f.brand ?? ''}`, query, f.cat) })).filter((x) => x.s >= 0).sort((a, b) => b.s - a.s).slice(0, limit).map((x) => x.f)
+}
+
 /** claude.ai önizlemesinde mi çalışıyoruz? Orada dış internete bağlantı tarayıcı tarafından engellenir. */
 export const inPreview = () => /claude\.ai$|claudeusercontent\.com$/.test(location.hostname) || (() => { try { return window.top !== window.self && /claude\.ai/.test(document.referrer) } catch { return true } })()
 

@@ -142,7 +142,7 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
       <button className="card" onClick={() => go('progress')}>
         <div className="card-title"><h3>Bu hafta çalışan kaslar</h3><span className="link">Detay ›</span></div>
         <BodyMap levels={levels} />
-        <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Çalışmadı</span><span><i style={{ background: 'color-mix(in srgb, var(--accent) 45%, var(--muscle))' }} />Az</span><span><i style={{ background: 'var(--accent)' }} />Haftalık hedef</span></div>
+        <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Çalışmadı</span><span><i style={{ background: 'var(--heat-lo)' }} />Az</span><span><i style={{ background: 'var(--heat-hi)' }} />Haftalık hedef</span></div>
         {!thisWeek.length && <p className="muted tiny">Bu hafta henüz antrenman yok; pazartesi sıfırlanır.</p>}
       </button>
 

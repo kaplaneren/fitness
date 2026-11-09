@@ -154,27 +154,31 @@ export function MultiLine({ series, labels, height = 160 }: { series: { name: st
   )
 }
 
-export function CalendarHeat({ grid, max = 20 }: { grid: { key: string; t: number; sets: number }[][]; max?: number }) {
+export function CalendarHeat({ grid, max = 20, goodWeek = 3 }: { grid: { key: string; t: number; sets: number }[][]; max?: number; goodWeek?: number }) {
   const c = 14, g = 3, top = 14, left = 18
+  // Ay etiketi: ayın ilk haftası; ilk sütundaki etiket bir sonrakiyle çakışacaksa yazılmaz
+  const firstOfMonth = (wi: number) => new Date(grid[wi][0].t).getDate() <= 7
+  const showLabel = (wi: number) => wi === 0 ? !firstOfMonth(1) && !firstOfMonth(2) : firstOfMonth(wi)
   const W = left + grid.length * (c + g), H = top + 7 * (c + g)
   const today = Date.now()
   return (
     <div className="chart" style={{ overflowX: 'auto' }}>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Antrenman takvimi" style={{ minWidth: 280 }}>
         {['Pt', 'Ça', 'Pa'].map((d, i) => <text key={d} x={0} y={top + (i * 3) * (c + g) + 11}>{d}</text>)}
-        {grid.map((col, wi) => (
+        {grid.map((col, wi) => { const strong = col.filter((d) => d.sets > 0).length >= goodWeek; return (
           <g key={wi}>
-            {(wi === 0 || new Date(col[0].t).getDate() <= 7) && <text x={left + wi * (c + g)} y={9}>{new Date(col[0].t).toLocaleDateString('tr-TR', { month: 'short' })}</text>}
+            {showLabel(wi) && <text x={left + wi * (c + g)} y={9}>{new Date(col[0].t).toLocaleDateString('tr-TR', { month: 'short' })}</text>}
             {col.map((d, di) => (
               <rect key={d.key} x={left + wi * (c + g)} y={top + di * (c + g)} width={c} height={c} rx="3"
-                fill={d.t > today ? 'transparent' : d.sets ? `color-mix(in srgb, var(--accent) ${Math.round(35 + Math.min(1, d.sets / max) * 65)}%, var(--surface-2))` : 'var(--surface-2)'}
+                fill={d.t > today ? 'transparent' : d.sets ? `color-mix(in srgb, ${strong ? 'var(--good)' : 'var(--accent)'} ${Math.round(45 + Math.min(1, d.sets / max) * 55)}%, var(--surface-2))` : 'var(--surface-2)'}
                 stroke={d.t > today ? 'var(--line)' : 'none'}>
                 <title>{new Date(d.t).toLocaleDateString('tr-TR')} · {d.sets} set</title>
               </rect>
             ))}
           </g>
-        ))}
+        ) })}
       </svg>
+      <div className="legend"><span><i style={{ background: 'var(--accent)' }} />Antrenman günü</span><span><i style={{ background: 'var(--good)' }} />{goodWeek}+ antrenmanlı hafta</span></div>
     </div>
   )
 }

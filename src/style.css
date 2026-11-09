@@ -18,6 +18,8 @@
   --danger: #c8322a;
   --body: #d7dde5;
   --muscle: #c3cbd6;
+  --heat-lo: #f8d36a; --heat-hi: #e5484d;
+  --lv0: #fbe7a1; --lv1: #f6c343; --lv2: #f08c2e; --lv3: #e5484d; --lv4: #a3263f;
   --shadow: 0 1px 2px rgba(18, 24, 33, .06), 0 4px 14px rgba(18, 24, 33, .05);
   --f-display: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
   --f-body: 'Manrope', -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -316,3 +318,6 @@ svg.scrub { touch-action: pan-y; cursor: crosshair; user-select: none; -webkit-u
 .edit-sets .input.sm { min-height: 38px; padding: 0 8px; width: 100%; min-width: 0; font-variant-numeric: tabular-nums; }
 .edit-sets td:first-child { width: 28px; }
 .edit-sets td:last-child { width: 40px; }
+
+.level-scale div.on.l0 { background: var(--lv0); } .level-scale div.on.l1 { background: var(--lv1); } .level-scale div.on.l2 { background: var(--lv2); }
+.level-scale div.on.l3 { background: var(--lv3); } .level-scale div.on.l4 { background: var(--lv4); }

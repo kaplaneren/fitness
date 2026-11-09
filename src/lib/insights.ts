@@ -222,7 +222,7 @@ export function weeklyReport(weekStart: number, workouts: Workout[], diary: Diar
     n: ws.length, sets: ws.reduce((a, w) => a + workoutSetCount(w), 0), vol: ws.reduce((a, w) => a + workoutVolume(w), 0),
     mins: ws.length ? ws.reduce((a, w) => a + ((w.endedAt ?? w.startedAt) - w.startedAt), 0) / ws.length / 60000 : 0
   })
-  const a = stat(cur), b = stat(prev)
+  const a = stat(cur), b = stat(prev), bFull = stat(workouts.filter((w) => inW(w.startedAt, prevStart)))
 
   const before = bestE1rmByExercise(workouts.filter((w) => w.startedAt < weekStart))
   const prs: { id: string; name: string; v: number; gain: number }[] = []
@@ -268,5 +268,5 @@ export function weeklyReport(weekStart: number, workouts: Workout[], diary: Diar
       else notes.push({ tone: 'warn', text: `Ortalama kilo bu hafta ${d > 0 ? '+' : ''}${d.toFixed(1)} kg. Bir hafta daha böyle giderse kaloriyi 150 kcal azalt.` })
     }
   }
-  return { a, b, prs, under, avgKcal, avgP, wCur, wPrev, notes, logged: dk.length, partial }
+  return { a, b, bFull, prs, under, avgKcal, avgP, wCur, wPrev, notes, logged: dk.length, partial, elapsed }
 }

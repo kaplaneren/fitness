@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { db, getKV, setKV, type DiaryEntry, type Food, type Meal, type MealTemplate } from '../db'
 import { BASE_FOODS, FOOD_CATEGORIES } from '../data/foods'
-import { MEALS, fetchOffProduct, inPreview, normalizeTr, portion, searchOff } from '../lib/nutrition'
+import { MEALS, fetchOffProduct, inPreview, searchFoods, normalizeTr, portion, searchOff } from '../lib/nutrition'
 import { ask, notify } from '../components/Dialog'
 
 type Tab = 'ara' | 'son' | 'barkod' | 'yeni' | 'tarif' | 'sablon'
@@ -31,9 +31,8 @@ export default function FoodSearch({ day, meal, onClose }: { day: string; meal: 
   }, []) ?? []
 
   const results = useMemo(() => {
-    const nq = normalizeTr(q.trim())
-    const words = nq.split(/\s+/).filter(Boolean)
-    return list.filter((f) => (!cat || f.cat === cat) && words.every((w) => normalizeTr(`${f.name} ${f.brand ?? ''}`).includes(w))).slice(0, 120)
+    const inCat = list.filter((f) => !cat || f.cat === cat)
+    return q.trim() ? searchFoods(inCat, q) : inCat.slice(0, 120)
   }, [list, q, cat])
 
   const searchOnline = async () => {
@@ -299,7 +298,7 @@ function Recipe({ foods, onSaved }: { foods: Food[]; onSaved: (f: Food) => void 
   const [cooked, setCooked] = useState('')
   const [portions, setPortions] = useState('4')
   const nq = normalizeTr(q.trim())
-  const hits = nq.length > 1 ? foods.filter((f) => nq.split(/\s+/).every((w) => normalizeTr(`${f.name} ${f.brand ?? ''}`).includes(w))).slice(0, 8) : []
+  const hits = nq.length > 1 ? searchFoods(foods, q, 8) : []
   const raw = items.reduce((a, i) => a + i.g, 0)
   const total = items.reduce((t, i) => { const v = portion(i.food, i.g); return { kcal: t.kcal + v.kcal, p: t.p + v.p, c: t.c + v.c, f: t.f + v.f } }, { kcal: 0, p: 0, c: 0, f: 0 })
   const weight = parseFloat(cooked.replace(',', '.')) || raw
