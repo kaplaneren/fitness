@@ -5,7 +5,7 @@ import { backupSummary, db, exportBackup, getProfile, importBackup, setKV, type 
 import { FLAG_INFO, type Flag } from '../data/exercises'
 import { useExercises, useProfile } from '../hooks'
 import { diaryCsv, importStrong, saveFile, shareFile, workoutsCsv } from '../lib/csv'
-import { fmtDate } from '../lib/calc'
+import { fmtDate, fmtNum } from '../lib/calc'
 import { targets } from '../lib/nutrition'
 import { MesoSetting } from '../components/MesoCard'
 import EquipmentPicker from '../components/EquipmentPicker'
@@ -97,7 +97,7 @@ export default function ProfileScreen() {
         </div>
         <p className="small">Diyet hedefi: bazal metabolizma <b>{t.bmr}</b> + günlük yaşam <b>{t.base - t.bmr}</b>{profile.eatBack ? <> + adım <b>{t.steps}</b> + antrenman ortalaması <b>{t.training}</b></> : ''} {profile.goal === 'cut' ? '− 450' : profile.goal === 'bulk' ? '+ 250' : ''} → <b>{t.kcal}</b> kcal, <b>{t.protein}</b> g protein, <b>{t.carbs}</b> g karbonhidrat, <b>{t.fat}</b> g yağ.</p>
         {!profile.eatBack && <p className="small">Adım ({t.steps} kcal) ve antrenman (ortalama {t.training} kcal) diyetten düşülmez, ekstra açık olur. Toplam harcama ≈ {t.tdee} kcal, günlük açık ≈ <b>{t.deficit}</b> kcal, haftada ≈ <b>{t.weeklyKg.toLocaleString('tr-TR')} kg</b>.</p>}
-        <p className="muted tiny">Adım kalorisi kilona göre hesaplanır (adım başına ≈ {(profile.bodyweight * 0.00045).toFixed(3)} kcal). Antrenman ortalaması: haftada {profile.weeklyTarget} × 1 saat × {profile.kcalWeights} kcal ÷ 7.</p>
+        <p className="muted tiny">Adım kalorisi kilona göre hesaplanır (adım başına ≈ {fmtNum(profile.bodyweight * 0.00045, 3)} kcal). Antrenman ortalaması: haftada {profile.weeklyTarget} × 1 saat × {profile.kcalWeights} kcal ÷ 7.</p>
         <label className="toggle">
           <input type="checkbox" checked={profile.eatBack} onChange={() => update({ eatBack: !profile.eatBack })} />
           <span>Yakılan kaloriyi diyet hedefine ekle (kapalıyken adım ve antrenman ekstra açık sayılır)</span>

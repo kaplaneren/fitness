@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { db } from '../db'
 import { useExercises, useProfile } from '../hooks'
 import { DAY } from '../lib/analysis'
-import { fmtDate, fmtKg } from '../lib/calc'
+import { fmtDate, fmtKg, fmtNum } from '../lib/calc'
 import { adaptiveTdee, balance, consistency, goalEta, mondayOf, nutritionStats, strengthPlateaus, weeklyReport, weightPlateau, weightTrend } from '../lib/insights'
 import { targets } from '../lib/nutrition'
 import LineChart, { CalendarHeat } from '../components/LineChart'
@@ -15,7 +15,7 @@ function Delta({ cur, prev, unit = '', digits = 0, invert = false }: { cur: numb
   if (!prev) return <span className="muted tiny">geçen hafta yok</span>
   const d = cur - prev
   const good = invert ? d < 0 : d > 0
-  return <span className={`tiny ${d === 0 ? 'muted' : good ? 'good' : 'warn'}`}>{d > 0 ? '▲' : d < 0 ? '▼' : '='} {Math.abs(d).toFixed(digits)}{unit}</span>
+  return <span className={`tiny ${d === 0 ? 'muted' : good ? 'good' : 'warn'}`}>{d > 0 ? '▲' : d < 0 ? '▼' : '='} {fmtNum(Math.abs(d), digits)}{unit}</span>
 }
 
 export function WeeklyReport() {
@@ -45,7 +45,7 @@ export function WeeklyReport() {
         <strong>{offset === 0 ? 'Bu hafta' : offset === 1 ? 'Geçen hafta' : range}</strong>
         <button className="icon-btn" aria-label="Sonraki hafta" disabled={offset === 0} style={{ opacity: offset === 0 ? 0.3 : 1 }} onClick={() => setOffset(offset - 1)}>›</button>
       </div>
-      <p className="muted tiny center">{range} · geçen haftayla kıyas</p>
+      <p className="muted tiny center">{range} · {r.partial ? 'geçen haftanın aynı günlerine göre' : 'geçen haftayla kıyas'}</p>
 
       <div className="stat-row">
         <div className="stat"><b>{r.a.n}<span className="muted" style={{ fontSize: 16 }}>/{profile.weeklyTarget}</span></b><span>antrenman</span><Delta cur={r.a.n} prev={r.b.n} /></div>
@@ -86,7 +86,7 @@ export function WeeklyReport() {
       {(plateaus.length > 0 || wp) && (
         <div className="card warn-card">
           <h3>Plato uyarıları</h3>
-          {wp && <p className="small"><b>Kilo:</b> son {wp.days} günde {wp.change > 0 ? '+' : ''}{wp.change.toFixed(1)} kg. {wp.tip}</p>}
+          {wp && <p className="small"><b>Kilo:</b> son {wp.days} günde {wp.change > 0 ? '+' : ''}{fmtNum(wp.change, 1)} kg. {wp.tip}</p>}
           {plateaus.slice(0, 3).map((p) => (
             <button key={p.id} className="stack small" style={{ textAlign: 'left', gap: 2 }} onClick={() => setOpen(p.id)}>
               <span><b>{p.name}</b>: {p.weeks} haftadır rekor yok (en iyi 1RM {fmtKg(p.best)} kg).</span>
@@ -146,7 +146,7 @@ export function WeightAnalysis() {
       <LineChart points={tr.smooth} raw={tr.raw} unit=" kg" target={profile.targetWeight} targetLabel="hedef" />
       <div className="stat-row">
         <div className="stat"><b>{fmtKg(cur)}</b><span>trend kilo</span></div>
-        <div className="stat"><b>{tr.rate != null ? `${tr.rate > 0 ? '+' : ''}${tr.rate.toFixed(2)}` : '–'}</b><span>kg / hafta</span></div>
+        <div className="stat"><b>{tr.rate != null ? `${tr.rate > 0 ? '+' : ''}${fmtNum(tr.rate, 2)}` : '–'}</b><span>kg / hafta</span></div>
         <div className="stat"><b>{eta?.date ? new Date(eta.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : '–'}</b><span>hedefe varış</span></div>
       </div>
       {tr.rate != null && profile.goal === 'cut' && (
@@ -172,7 +172,7 @@ export function NutritionAnalysis() {
       </div>
       <div className="stat-row">
         <div className="stat"><b>{Math.round(st.kcal)}</b><span>ort. kcal (hedef {st.t.kcal})</span></div>
-        <div className="stat"><b>{st.proteinPerKg.toFixed(1)}</b><span>g protein / kg</span></div>
+        <div className="stat"><b>{fmtNum(st.proteinPerKg, 1)}</b><span>g protein / kg</span></div>
         <div className="stat"><b>{st.days}</b><span>kayıtlı gün</span></div>
       </div>
       <div className="card">

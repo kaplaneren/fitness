@@ -5,10 +5,10 @@ import { e1rm } from './calc'
 export const DAY = 86400000
 
 /** Haftalık kas başına zor set sayısı (ana kas 1, yardımcı kas 0,5). Isınma setleri sayılmaz. */
-export function muscleSets(workouts: Workout[], exMap: Map<string, Exercise>, since: number) {
+export function muscleSets(workouts: Workout[], exMap: Map<string, Exercise>, since: number, until = Infinity) {
   const out: Partial<Record<Muscle, number>> = {}
   for (const w of workouts) {
-    if (w.startedAt < since) continue
+    if (w.startedAt < since || w.startedAt >= until) continue
     for (const e of w.exercises) {
       const info = exMap.get(e.exerciseId)
       if (!info || info.kind === 'time') continue

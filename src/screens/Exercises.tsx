@@ -146,7 +146,7 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
           <div className="card">
             <div className="card-title"><h3>Güç seviyesi</h3><span className="pill">{levelOf(score)}</span></div>
             <LevelScale p={score} />
-            <p className="small">Erkeklerin yaklaşık <b>%{Math.round(score)}</b>'inden güçlü · 1RM kilonun <b>{(best1rm / profile.bodyweight).toFixed(2)}</b> katı{next && <> · {next.level} için <b>{fmtKg(next.kg)} kg</b></>}</p>
+            <p className="small">{profile.sex === 'f' ? 'Kadınların' : 'Erkeklerin'} yaklaşık <b>%{Math.round(score)}</b>'inden güçlü · 1RM kilonun <b>{(best1rm / profile.bodyweight).toFixed(2).replace('.', ',')}</b> katı{next && <> · {next.level} için <b>{fmtKg(next.kg)} kg</b></>}</p>
             {standardsFor(ex.id, profile.bodyweight, profile.sex) && <p className="muted tiny">strengthlevel.com ({profile.sex === 'f' ? 'kadın' : 'erkek'}, {fmtKg(profile.bodyweight)} kg): {standardsFor(ex.id, profile.bodyweight, profile.sex)!.map((k, i) => `${LEVELS[i]} ${fmtKg(k)}`).join(' · ')}{ex.equipment === 'dumbbell' ? ' (tek dambıl)' : ''}</p>}
           </div>
         )}

@@ -2,6 +2,16 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.11.1', date: '9 Kasım 2026', items: [
+    'Kas haritası ve haftalık set sayıları takvim haftasına bakıyor (pazartesiden bugüne); son 7 gün geçen haftanın antrenmanlarını da sayıyordu. İlerleme > Kaslar\'da Bu hafta / Geçen hafta / 4 hafta ortalaması',
+    'Kas haritası kırmızı yerine mavi tonlarda: kırmızı uyarı gibi okunuyordu',
+    'Süren hafta artık geçen haftanın aynı dönemiyle kıyaslanıyor (Özet kutuları ve Haftalık rapor); pazartesi her şey düşüş görünmüyor. Hafta bitmeden "az çalışan kas" ve "az beslenme kaydı" uyarısı çıkmıyor',
+    'Kas grubu hacim grafiği sadece bitmiş haftaları gösteriyor; son noktadaki yapay düşüş kalktı',
+    'Hareket ekranındaki güç yüzdesi kadın profilinde "kadınların" diyor (0.9.1\'de atlanmıştı)',
+    'Ondalık sayılar her yerde Türkçe (virgüllü) gösteriliyor; ölçüm geçmişinde uzun ondalıklar düzeltildi',
+    'Geçmiş kartlarında en fazla 5 hareket listeleniyor, gerisi "+N hareket daha"',
+    'Tenis, yüzme gibi aktiviteler devamlılık takviminde ve haftalık seride sayılıyor'
+  ] },
   { v: '0.11.0', date: '7 Kasım 2026', items: [
     'Salon dışı aktiviteler: tenis, padel, yüzme, koşu, yürüyüş, bisiklet, doğa yürüyüşü, futbol, basketbol, yoga, pilates, boks, dans ve daha fazlası (Antrenman > Spor / aktivite ekle)',
     'Aktivite kalorisi süre, kilo, yaş, boy ve cinsiyetten hesaplanıyor: Compendium MET değerleri, dinlenme metabolizması düşülerek; koşu, yürüyüş ve bisiklette mesafe girilirse hızdan. Nabız girilirse Keytel formülü',

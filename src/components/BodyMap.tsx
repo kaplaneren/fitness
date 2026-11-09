@@ -47,7 +47,7 @@ export default function BodyMap({ primary = [], secondary = [], levels, onPick, 
     if (levels) {
       const v = levels[m] ?? 0
       if (v <= 0) return 'var(--muscle)'
-      return `color-mix(in srgb, var(--plate-red) ${Math.round(25 + Math.min(1, v) * 75)}%, var(--muscle))`
+      return `color-mix(in srgb, var(--accent) ${Math.round(25 + Math.min(1, v) * 75)}%, var(--muscle))`
     }
     if (selected === m || primary.includes(m)) return 'var(--accent)'
     if (secondary.includes(m)) return 'color-mix(in srgb, var(--accent) 40%, var(--muscle))'

@@ -1,3 +1,4 @@
+import { fmtNum } from '../lib/calc'
 import { useState } from 'react'
 import { db, type Workout } from '../db'
 import { useProfile } from '../hooks'
@@ -75,7 +76,7 @@ export default function ActivitySheet({ w, onClose }: { w?: Workout; onClose: ()
           <p className="muted tiny">
             {hrN && hrN >= 80
               ? 'Ortalama nabız girdiğin için kaydedince nabız, kilo, yaş ve cinsiyetten (Keytel formülü) hesaplanır.'
-              : `MET ${met.toFixed(1)} (${from}) × ${kg} kg × ${minutes} dk, dinlenme metabolizman (${Math.round(bmr(profile, kg))} kcal/gün; yaş, boy, cinsiyet) düşüldü.`}
+              : `MET ${fmtNum(met, 1)} (${from}) × ${kg} kg × ${minutes} dk, dinlenme metabolizman (${Math.round(bmr(profile, kg))} kcal/gün; yaş, boy, cinsiyet) düşüldü.`}
           </p>
           {type === 'walk' && <p className="muted tiny">Yürüyüşün adımların zaten günlük adım hedefine sayılıyorsa ayrıca eklersen aynı yürüyüşü iki kez saymış olursun.</p>}
         </div>

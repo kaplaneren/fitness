@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { db, getKV, setKV, type Checkin } from '../db'
 import { useExercises, useProfile } from '../hooks'
 import { DAY } from '../lib/analysis'
-import { fmtDate } from '../lib/calc'
+import { fmtDate, fmtNum } from '../lib/calc'
 import { todayKey } from '../lib/nutrition'
 import { strengthPlateaus } from '../lib/insights'
 import { useMeso } from '../lib/meso'
@@ -135,7 +135,7 @@ export function HealthView() {
         <div className="card">
           <h3>Uyku</h3>
           <LineChart points={sleep} unit=" sa" target={7.5} targetLabel="hedef" />
-          <p className="small">Son 7 kayıt ortalaması: <b>{(sleep.slice(-7).reduce((a, b) => a + b.v, 0) / Math.min(7, sleep.length)).toFixed(1)} saat</b></p>
+          <p className="small">Son 7 kayıt ortalaması: <b>{fmtNum(sleep.slice(-7).reduce((a, b) => a + b.v, 0) / Math.min(7, sleep.length), 1)} saat</b></p>
         </div>
       )}
       {steps.length >= 2 && (
@@ -153,16 +153,16 @@ export function HealthView() {
         <LineChart points={painSeries} unit="" color="var(--plate-red)" />
         {pl.avg == null ? <p className="muted small">Analiz için en az 5 gün ağrı kaydı gerekiyor. Günlük kontrolde {JOINT_NAMES[joint].toLowerCase()} ağrını 0 da olsa işaretle.</p> : (
           <>
-            <p className="small">Ortalama {JOINT_NAMES[joint].toLowerCase()} ağrın: <b>{pl.avg.toFixed(1)}/10</b>. Aşağıda, hareketi yaptığın günün ertesindeki ağrı ortalaması var.</p>
+            <p className="small">Ortalama {JOINT_NAMES[joint].toLowerCase()} ağrın: <b>{fmtNum(pl.avg, 1)}/10</b>. Aşağıda, hareketi yaptığın günün ertesindeki ağrı ortalaması var.</p>
             {pl.links.length === 0 ? <p className="muted small">Henüz yeterli eşleşme yok (her hareket için en az 2 gün).</p> : (
               <ul className="list" style={{ border: 0 }}>
                 {pl.links.slice(0, 8).map((l) => (
                   <li key={l.id}>
                     <div className="stack" style={{ gap: 2 }}>
                       <span className="title">{l.name}</span>
-                      <span className="muted tiny">{l.n} gün · ertesi gün ort. {l.after.toFixed(1)}</span>
+                      <span className="muted tiny">{l.n} gün · ertesi gün ort. {fmtNum(l.after, 1)}</span>
                     </div>
-                    <b className={`mono ${l.diff >= 1 ? 'bad' : l.diff >= 0.4 ? 'warn' : 'good'}`}>{l.diff > 0 ? '+' : ''}{l.diff.toFixed(1)}</b>
+                    <b className={`mono ${l.diff >= 1 ? 'bad' : l.diff >= 0.4 ? 'warn' : 'good'}`}>{l.diff > 0 ? '+' : ''}{fmtNum(l.diff, 1)}</b>
                   </li>
                 ))}
               </ul>

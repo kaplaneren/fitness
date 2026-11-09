@@ -129,7 +129,7 @@ export function weightPlateau(ms: Measurement[], profile: Profile) {
 export function consistency(workouts: Workout[], weeklyTarget: number, weeks = 16) {
   const start = mondayOf(Date.now()) - (weeks - 1) * 7 * DAY
   const days = new Map<string, number>()
-  for (const w of workouts) if (w.startedAt >= start) days.set(dayKeyOf(w.startedAt), (days.get(dayKeyOf(w.startedAt)) ?? 0) + workoutSetCount(w))
+  for (const w of workouts) if (w.startedAt >= start) days.set(dayKeyOf(w.startedAt), (days.get(dayKeyOf(w.startedAt)) ?? 0) + (workoutSetCount(w) || (w.activity ? 1 : 0)))
   const grid: { key: string; t: number; sets: number }[][] = []
   for (let wk = 0; wk < weeks; wk++) {
     const col = []
@@ -158,7 +158,8 @@ export function balance(workouts: Workout[], exMap: Map<string, Exercise>, days 
 
 /* ---------- Kas grubu hacim trendi ---------- */
 export function groupVolumeWeeks(workouts: Workout[], exMap: Map<string, Exercise>, weeks = 8) {
-  const m0 = mondayOf(Date.now())
+  // Sadece bitmiş haftalar: süren hafta grafikte yapay bir düşüş gibi görünüyordu
+  const m0 = mondayOf(Date.now()) - 7 * DAY
   return Array.from({ length: weeks }, (_, i) => {
     const s = m0 - (weeks - 1 - i) * 7 * DAY
     const ws = workouts.filter((w) => w.startedAt >= s && w.startedAt < s + 7 * DAY)
@@ -213,7 +214,10 @@ export interface Note { tone: 'good' | 'warn' | 'bad'; text: string }
 export function weeklyReport(weekStart: number, workouts: Workout[], diary: DiaryEntry[], ms: Measurement[], exMap: Map<string, Exercise>, profile: Profile) {
   const end = weekStart + 7 * DAY, prevStart = weekStart - 7 * DAY
   const inW = (t: number, s: number) => t >= s && t < s + 7 * DAY
-  const cur = workouts.filter((w) => inW(w.startedAt, weekStart)), prev = workouts.filter((w) => inW(w.startedAt, prevStart))
+  // Süren hafta, geçen haftanın aynı dönemiyle (pazartesiden aynı gün ve saate kadar) kıyaslanır; yoksa pazartesi her şey "düşüş" görünür
+  const partial = end > Date.now()
+  const elapsed = partial ? Math.max(0, Date.now() - weekStart) : 7 * DAY
+  const cur = workouts.filter((w) => inW(w.startedAt, weekStart)), prev = workouts.filter((w) => w.startedAt >= prevStart && w.startedAt < prevStart + elapsed)
   const stat = (ws: Workout[]) => ({
     n: ws.length, sets: ws.reduce((a, w) => a + workoutSetCount(w), 0), vol: ws.reduce((a, w) => a + workoutVolume(w), 0),
     mins: ws.length ? ws.reduce((a, w) => a + ((w.endedAt ?? w.startedAt) - w.startedAt), 0) / ws.length / 60000 : 0
@@ -246,15 +250,16 @@ export function weeklyReport(weekStart: number, workouts: Workout[], diary: Diar
     else if (d < -0.25) notes.push({ tone: 'warn', text: `Hacim geçen haftaya göre %${Math.round(-d * 100)} düştü.` })
   }
   if (prs.length) notes.push({ tone: 'good', text: `${prs.length} harekette yeni tahmini 1RM rekoru.` })
-  if (under.length && a.n) notes.push({ tone: 'warn', text: `Hedef set sayısının altında kalan kaslar: ${under.slice(0, 5).map((m) => MUSCLE_NAMES[m]).join(', ')}.` })
+  if (under.length && a.n && !partial) notes.push({ tone: 'warn', text: `Hedef set sayısının altında kalan kaslar: ${under.slice(0, 5).map((m) => MUSCLE_NAMES[m]).join(', ')}.` })
   if (avgKcal != null) {
     const diff = avgKcal - t.kcal
     if (Math.abs(diff) <= t.kcal * 0.08) notes.push({ tone: 'good', text: `Kalori ortalaman (${Math.round(avgKcal)}) hedefe yakın.` })
     else notes.push({ tone: 'warn', text: `Kalori ortalaman hedefin ${Math.abs(Math.round(diff))} kcal ${diff > 0 ? 'üstünde' : 'altında'}.` })
     if (avgP != null && avgP < t.protein * 0.9) notes.push({ tone: 'warn', text: `Protein ortalaman ${Math.round(avgP)} g; hedef ${t.protein} g. Her öğüne bir protein kaynağı ekle.` })
-    if (dk.length < 5) notes.push({ tone: 'warn', text: `Bu hafta ${dk.length} gün beslenme kaydı var. Doğru analiz için en az 5 gün kaydet.` })
+    if (dk.length < 5 && !partial) notes.push({ tone: 'warn', text: `Bu hafta ${dk.length} gün beslenme kaydı var. Doğru analiz için en az 5 gün kaydet.` })
   }
-  if (wCur != null && wPrev != null) {
+  const curWeighins = ms.filter((m) => m.weight && inW(m.date, weekStart)).length
+  if (wCur != null && wPrev != null && (!partial || curWeighins >= 3)) {
     const d = wCur - wPrev
     const pct = (d / wPrev) * 100
     if (profile.goal === 'cut') {
@@ -263,5 +268,5 @@ export function weeklyReport(weekStart: number, workouts: Workout[], diary: Diar
       else notes.push({ tone: 'warn', text: `Ortalama kilo bu hafta ${d > 0 ? '+' : ''}${d.toFixed(1)} kg. Bir hafta daha böyle giderse kaloriyi 150 kcal azalt.` })
     }
   }
-  return { a, b, prs, under, avgKcal, avgP, wCur, wPrev, notes, logged: dk.length }
+  return { a, b, prs, under, avgKcal, avgP, wCur, wPrev, notes, logged: dk.length, partial }
 }

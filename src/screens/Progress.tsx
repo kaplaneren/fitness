@@ -3,8 +3,9 @@ import { useMemo, useState } from 'react'
 import { db, type Measurement } from '../db'
 import { MUSCLE_NAMES, type Muscle } from '../data/exercises'
 import { useExercises, useProfile } from '../hooks'
+import { mondayOf } from '../lib/insights'
 import { DAY, LEVELS, WEEKLY_RANGE, bestE1rmByExercise, ffmi, hasStandard, levelIndex, levelOf, liftScore, muscleSets, strengthProfile, volumeStatus } from '../lib/analysis'
-import { fmtDate, fmtKg, workoutVolume } from '../lib/calc'
+import { fmtDate, fmtKg, workoutVolume, fmtNum } from '../lib/calc'
 import BodyMap from '../components/BodyMap'
 import LineChart, { Bars } from '../components/LineChart'
 import ExerciseLibrary, { ExerciseDetail } from './Exercises'
@@ -82,7 +83,7 @@ function Strength() {
         <div className="card">
           <h3>Bölgelere göre güç</h3>
           <BodyMap levels={levels} />
-          <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Ölçülmedi</span><span><i style={{ background: 'color-mix(in srgb, var(--plate-red) 50%, var(--muscle))' }} />Orta</span><span><i style={{ background: 'var(--plate-red)' }} />Güçlü</span></div>
+          <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Ölçülmedi</span><span><i style={{ background: 'color-mix(in srgb, var(--accent) 50%, var(--muscle))' }} />Orta</span><span><i style={{ background: 'var(--accent)' }} />Güçlü</span></div>
           {sp.regions.map((r) => (
             <button key={r.name} className="stack" style={{ gap: 4, textAlign: 'left', padding: '6px 0', borderTop: '1px solid var(--line)' }} onClick={() => r.id && setOpen(r.id)}>
               <div className="row-between"><b>{r.name}</b>{r.score ? <span className="pill">{levelOf(r.score)} · {Math.round(r.score)}</span> : <span className="muted tiny">kayıt yok</span>}</div>
@@ -113,7 +114,7 @@ function Strength() {
               <li key={id} onClick={() => setOpen(id)}>
                 <div className="stack" style={{ gap: 2 }}>
                   <span className="title">{map.get(id)?.name ?? id}</span>
-                  <span className="muted tiny">{fmtDate(b.date)} · kilonun {(b.v / profile.bodyweight).toFixed(2)} katı{hasStandard(id) ? ` · ${levelOf(liftScore(id, b.v, profile.bodyweight, profile.sex))}` : ''}</span>
+                  <span className="muted tiny">{fmtDate(b.date)} · kilonun {fmtNum(b.v / profile.bodyweight, 2)} katı{hasStandard(id) ? ` · ${levelOf(liftScore(id, b.v, profile.bodyweight, profile.sex))}` : ''}</span>
                 </div>
                 <b className="mono">{fmtKg(b.v)} kg</b>
               </li>
@@ -139,13 +140,18 @@ export function LevelScale({ p }: { p: number }) {
 function Muscles() {
   const workouts = useLiveQuery(() => db.workouts.toArray(), []) ?? []
   const { map } = useExercises()
-  const [range, setRange] = useState<7 | 28>(7)
+  // Takvim haftaları: bu hafta (pazartesiden bugüne), geçen hafta, ya da bitmiş son 4 haftanın ortalaması
+  const [range, setRange] = useState<'this' | 'last' | 'avg4'>('this')
   const [lib, setLib] = useState<Muscle | null>(null)
-  const sets = muscleSets(workouts, map, Date.now() - range * DAY)
-  const perWeek = (m: Muscle) => (sets[m] ?? 0) / (range / 7)
+  const monday = mondayOf(Date.now())
+  const [from, to, div] = range === 'this' ? [monday, Infinity, 1] : range === 'last' ? [monday - 7 * DAY, monday, 1] : [monday - 28 * DAY, monday, 4]
+  const sets = muscleSets(workouts, map, from, to)
+  const perWeek = (m: Muscle) => (sets[m] ?? 0) / div
+  const current = range === 'this'
+  const dayOfWeek = Math.floor((Date.now() - monday) / DAY) + 1
   const levels = Object.fromEntries((Object.keys(WEEKLY_RANGE) as Muscle[]).map((m) => [m, perWeek(m) / Math.max(1, WEEKLY_RANGE[m][1])]))
   const rows = (Object.keys(WEEKLY_RANGE) as Muscle[]).filter((m) => WEEKLY_RANGE[m][0] > 0 || perWeek(m) > 0)
-  const low = rows.filter((m) => volumeStatus(m, perWeek(m)) === 'low')
+  const low = current ? [] : rows.filter((m) => volumeStatus(m, perWeek(m)) === 'low')
   const high = rows.filter((m) => volumeStatus(m, perWeek(m)) === 'high')
   const trendWeeks = groupVolumeWeeks(workouts, map)
 
@@ -153,21 +159,22 @@ function Muscles() {
     <>
       <div className="card">
         <div className="card-title"><h3>Kas ısı haritası</h3>
-          <div className="seg" style={{ width: 150 }}>
-            <button className={range === 7 ? 'on' : ''} onClick={() => setRange(7)}>7 gün</button>
-            <button className={range === 28 ? 'on' : ''} onClick={() => setRange(28)}>4 hafta</button>
+          <div className="seg" style={{ width: 210 }}>
+            <button className={range === 'this' ? 'on' : ''} onClick={() => setRange('this')}>Bu hafta</button>
+            <button className={range === 'last' ? 'on' : ''} onClick={() => setRange('last')}>Geçen</button>
+            <button className={range === 'avg4' ? 'on' : ''} onClick={() => setRange('avg4')}>4 hf ort.</button>
           </div>
         </div>
         <BodyMap levels={levels} onPick={(m) => setLib(m)} />
-        <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Çalışmadı</span><span><i style={{ background: 'color-mix(in srgb, var(--plate-red) 45%, var(--muscle))' }} />Az</span><span><i style={{ background: 'var(--plate-red)' }} />Hedefe ulaştı</span></div>
-        <p className="muted tiny">Bir kasa dokunursan o kası çalıştıran hareketler açılır.</p>
+        <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Çalışmadı</span><span><i style={{ background: 'color-mix(in srgb, var(--accent) 45%, var(--muscle))' }} />Az</span><span><i style={{ background: 'var(--accent)' }} />Hedefe ulaştı</span></div>
+        <p className="muted tiny">{current ? `Pazartesiden bugüne (${dayOfWeek}. gün). ` : range === 'last' ? 'Geçen hafta pazartesi-pazar. ' : 'Bitmiş son 4 takvim haftasının haftalık ortalaması. '}Bir kasa dokunursan o kası çalıştıran hareketler açılır.</p>
       </div>
 
       <div className="card">
-        <h3>Kas grubu hacmi (8 hafta)</h3>
+        <h3>Kas grubu hacmi (son 8 hafta)</h3>
         <MultiLine labels={trendWeeks.map((w) => new Date(w.t).toLocaleDateString('tr-TR', { day: 'numeric', month: 'numeric' }))}
           series={GROUP_COLORS.map(([name, color]) => ({ name, color, values: trendWeeks.map((w) => w.groups[name] ?? 0) }))} />
-        <p className="muted tiny">Haftalık set sayısı (yardımcı kas 0,5).</p>
+        <p className="muted tiny">Bitmiş haftaların set sayısı (yardımcı kas 0,5); süren hafta dahil değil.</p>
       </div>
 
       {(low.length > 0 || high.length > 0) && (
@@ -180,7 +187,7 @@ function Muscles() {
 
       <div className="card">
         <h3>Haftalık set sayısı</h3>
-        <p className="muted tiny">Ana kas 1, yardımcı kas 0,5 set sayılır. Çizgi hedef aralığı gösterir.</p>
+        <p className="muted tiny">Ana kas 1, yardımcı kas 0,5 set sayılır. Yeşil bant haftalık hedef aralığı.{current ? ' Hafta sürerken mavi çubuk "devam ediyor" demek; hafta bitince hedefin altında kalanlar turuncu olur.' : ''}</p>
         {rows.map((m) => {
           const v = perWeek(m), [lo, hi] = WEEKLY_RANGE[m], max = Math.max(hi + 6, v)
           const st = volumeStatus(m, v)
@@ -189,7 +196,7 @@ function Muscles() {
               <span>{MUSCLE_NAMES[m]}</span>
               <div className="bar-track" style={{ position: 'relative' }}>
                 <div style={{ position: 'absolute', left: `${(lo / max) * 100}%`, width: `${((hi - lo) / max) * 100}%`, top: 0, bottom: 0, background: 'color-mix(in srgb, var(--good) 22%, transparent)' }} />
-                <div className="bar-fill" style={{ position: 'relative', width: `${(v / max) * 100}%`, background: st === 'ok' ? 'var(--good)' : st === 'low' ? 'var(--warn)' : 'var(--danger)' }} />
+                <div className="bar-fill" style={{ position: 'relative', width: `${(v / max) * 100}%`, background: st === 'ok' ? 'var(--good)' : st === 'low' ? (current ? 'var(--accent)' : 'var(--warn)') : 'var(--danger)' }} />
               </div>
               <span className="mono" style={{ textAlign: 'right' }}>{fmtKg(v)}</span>
             </div>
@@ -244,7 +251,7 @@ function Body() {
       {ff && (
         <div className="stat-row">
           <div className="stat"><b>%{fmtKg(bf!)}</b><span>{lastWith('bodyFat') ? 'yağ oranı' : 'tahmini yağ (bel+kilo)'}</span></div>
-          <div className="stat"><b>{ff.ffmi.toFixed(1)}</b><span>FFMI</span></div>
+          <div className="stat"><b>{fmtNum(ff.ffmi, 1)}</b><span>FFMI</span></div>
           <div className="stat"><b>{fmtKg(ff.lean)}</b><span>yağsız kütle (kg)</span></div>
           <div className="stat"><b>{fmtKg(wt - ff.lean)}</b><span>yağ kütlesi (kg)</span></div>
         </div>
@@ -260,7 +267,7 @@ function Body() {
         <LineChart points={tr.smooth} raw={tr.raw} unit={metric === 'bodyFat' ? '%' : metric === 'waist' ? ' cm' : ' kg'} target={metric === 'weight' ? profile.targetWeight : undefined} />
         {tr.smooth.length >= 2 && (() => {
           const d = tr.smooth[tr.smooth.length - 1].v - tr.smooth[0].v
-          return <p className="small">Trend (hareketli ortalama): {fmtDate(tr.smooth[0].t)} tarihinden beri <b className={d <= 0 ? 'good' : 'warn'}>{d > 0 ? '+' : ''}{fmtKg(d)}{metric === 'bodyFat' ? ' puan' : metric === 'waist' ? ' cm' : ' kg'}</b>{tr.rate != null && <> · haftada {tr.rate > 0 ? '+' : ''}{tr.rate.toFixed(2)}</>}</p>
+          return <p className="small">Trend (hareketli ortalama): {fmtDate(tr.smooth[0].t)} tarihinden beri <b className={d <= 0 ? 'good' : 'warn'}>{d > 0 ? '+' : ''}{fmtKg(d)}{metric === 'bodyFat' ? ' puan' : metric === 'waist' ? ' cm' : ' kg'}</b>{tr.rate != null && <> · haftada {tr.rate > 0 ? '+' : ''}{fmtNum(tr.rate, 2)}</>}</p>
         })()}
       </div>
 
@@ -270,7 +277,7 @@ function Body() {
           {last.slice(0, 10).map((m) => (
             <div key={m.id} className="hist-row">
               <span className="muted small">{fmtDate(m.date)}</span>
-              <span className="mono small">{[m.weight && `${fmtKg(m.weight)} kg`, m.waist && `bel ${m.waist}`, m.bodyFat && `%${m.bodyFat}`, m.chest && `göğüs ${m.chest}`, m.arm && `kol ${m.arm}`, m.thigh && `bacak ${m.thigh}`].filter(Boolean).join(' · ')}</span>
+              <span className="mono small">{[m.weight && `${fmtKg(m.weight)} kg`, m.waist && `bel ${fmtKg(m.waist)}`, m.bodyFat && `%${fmtKg(m.bodyFat)}`, m.chest && `göğüs ${fmtKg(m.chest)}`, m.arm && `kol ${fmtKg(m.arm)}`, m.thigh && `bacak ${fmtKg(m.thigh)}`].filter(Boolean).join(' · ')}</span>
             </div>
           ))}
         </div>

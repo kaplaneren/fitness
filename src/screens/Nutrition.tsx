@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { db, getKV, setKV, type DiaryEntry, type Meal, type MealTemplate } from '../db'
 import { useDayEnergy } from '../hooks'
 import { MEALS, shiftDay, sumEntries, todayKey } from '../lib/nutrition'
-import { fmtKg } from '../lib/calc'
+import { fmtKg, fmtNum } from '../lib/calc'
 import FoodSearch, { EditEntrySheet } from './FoodSearch'
 import VersionFooter from '../components/VersionFooter'
 import { Bars } from '../components/LineChart'
@@ -125,7 +125,7 @@ export default function NutritionScreen() {
       })}
 
       <div className="card">
-        <div className="card-title"><h3>Su</h3><span className="muted small mono">{water} / {profile.waterTarget} bardak · {(water * 0.2).toFixed(1)} L</span></div>
+        <div className="card-title"><h3>Su</h3><span className="muted small mono">{water} / {profile.waterTarget} bardak · {fmtNum(water * 0.2, 1)} L</span></div>
         <div className="water">
           {Array.from({ length: Math.max(profile.waterTarget, water) }, (_, i) => (
             <button key={i} className={`glass ${i < water ? 'full' : ''}`} aria-label={`${i + 1}. bardak`} onClick={() => setKV('water:' + day, i < water ? i : i + 1)} />
@@ -149,7 +149,7 @@ export default function NutritionScreen() {
         <div className="card">
           <div className="card-title"><h3>Son 7 gün</h3><span className="muted small">ortalama {avg} kcal</span></div>
           <Bars values={week.map((w) => w.kcal)} labels={week.map((w) => new Date(w.d).toLocaleDateString('tr-TR', { weekday: 'short' }))} />
-          <p className="muted tiny">Hedef {t.kcal} kcal. Kayıt girilen {logged.length} günün ortalaması {avg > t.kcal ? `${avg - t.kcal} kcal fazla` : `${t.kcal - avg} kcal altında`}.</p>
+          <p className="muted tiny">Hedef {t.kcal} kcal. Kayıt girilen {logged.length} günün ortalaması {avg} kcal, hedefin {avg > t.kcal ? `${avg - t.kcal} kcal üstünde` : `${t.kcal - avg} kcal altında`}.</p>
         </div>
       )}
 

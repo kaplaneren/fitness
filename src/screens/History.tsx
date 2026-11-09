@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { db, setKV, type Workout } from '../db'
 import { useExercises, useProfile } from '../hooks'
 import { workoutBurn } from '../lib/health'
-import { e1rm, fmtDate, fmtDuration, fmtKg, workoutSetCount, workoutVolume } from '../lib/calc'
+import { e1rm, fmtDate, fmtDuration, fmtKg, workoutSetCount, workoutVolume, fmtNum } from '../lib/calc'
 import { DAY, analyzeWorkout, bestE1rmByExercise, trend } from '../lib/analysis'
 import LineChart from '../components/LineChart'
 import { ExerciseDetail } from './Exercises'
@@ -195,11 +195,12 @@ function WorkoutCard({ w, onClick, selecting, selected, onRepeat, onShare, onDel
       )}
       <button onClick={onClick} style={{ textAlign: 'left' }}>
         <ul className="mini">
-          {w.exercises.map((e, i) => {
+          {w.exercises.slice(0, w.exercises.length > 5 ? 4 : 5).map((e, i) => {
             const work = e.sets.filter((s) => s.type !== 'warmup')
             const top = work.reduce((b, s) => (e1rm(s.weight, s.reps, s.rir) > e1rm(b?.weight, b?.reps, b?.rir) ? s : b), work[0])
             return <li key={i}><span className="ellipsis">{work.length} × {map.get(e.exerciseId)?.name ?? e.exerciseId}</span><span className="muted mono">{top?.weight ? `${fmtKg(top.weight)} × ${top.reps}` : top?.seconds && !top.reps ? `${Math.round(top.seconds / 60)} dk` : top?.reps ? `${top.reps} tekrar` : ''}</span></li>
           })}
+          {w.exercises.length > 5 && <li className="muted"><span>+{w.exercises.length - 4} hareket daha</span><span /></li>}
         </ul>
       </button>
     </div>
@@ -235,7 +236,7 @@ function ActivityDetail({ w, onClose }: { w: Workout; onClose: () => void }) {
           <div className="stat"><b>{burn.kcal}</b><span>kcal yakıldı</span></div>
           {w.heartRateAvg && <div className="stat"><b>{w.heartRateAvg}</b><span>ort. nabız</span></div>}
         </div>
-        <p className="muted tiny">{burn.method === 'hr' ? `Ortalama nabız (${w.heartRateAvg}), kilo, yaş ve cinsiyetten Keytel formülüyle hesaplandı; dinlenme metabolizması düşüldü.` : `MET ${met.toFixed(1)} (${from}), ${w.bodyweight ?? profile.bodyweight} kg, ${a.min} dk; yaş, boy ve cinsiyetten hesaplanan dinlenme metabolizması düşüldü. Tahminidir.`}</p>
+        <p className="muted tiny">{burn.method === 'hr' ? `Ortalama nabız (${w.heartRateAvg}), kilo, yaş ve cinsiyetten Keytel formülüyle hesaplandı; dinlenme metabolizması düşüldü.` : `MET ${fmtNum(met, 1)} (${from}), ${w.bodyweight ?? profile.bodyweight} kg, ${a.min} dk; yaş, boy ve cinsiyetten hesaplanan dinlenme metabolizması düşüldü. Tahminidir.`}</p>
         {w.note && <div className="card"><p>{w.note}</p></div>}
         <button className="btn block" onClick={() => shareText(workoutText(w, map), w.name)}>Paylaş</button>
         <button className="btn danger block" onClick={remove}>Aktiviteyi sil</button>

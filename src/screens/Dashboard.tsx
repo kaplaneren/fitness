@@ -26,9 +26,11 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
   const routines = useLiveQuery(() => db.routines.toArray(), []) ?? []
   const total = sumEntries(today)
 
-  const weekAgo = Date.now() - 7 * DAY
-  const thisWeek = workouts.filter((w) => w.startedAt >= weekAgo)
-  const sets = muscleSets(workouts, map, weekAgo)
+  // Takvim haftası (pazartesiden bugüne); son 7 gün geçen haftanın antrenmanlarını da sayıp yanıltıyordu
+  const weekStart = mondayOf(Date.now())
+  const thisWeek = workouts.filter((w) => w.startedAt >= weekStart)
+  const lastSoFar = workouts.filter((w) => w.startedAt >= weekStart - 7 * DAY && w.startedAt < Date.now() - 7 * DAY)
+  const sets = muscleSets(workouts, map, weekStart)
   const levels = Object.fromEntries((Object.keys(WEEKLY_RANGE) as Muscle[]).map((m) => [m, (sets[m] ?? 0) / Math.max(1, WEEKLY_RANGE[m][1])]))
   const sp = strengthProfile(workouts, profile.bodyweight, profile.sex)
   const last = workouts[workouts.length - 1]
@@ -133,13 +135,15 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
       </button>
 
       <div className="stat-row">
-        <div className="stat"><b>{thisWeek.reduce((a, w) => a + workoutSetCount(w), 0)}</b><span>set / 7 gün</span></div>
-        <div className="stat"><b>{fmtKg(thisWeek.reduce((a, w) => a + workoutVolume(w), 0) / 1000)}</b><span>ton hacim</span></div>
+        <div className="stat"><b>{thisWeek.reduce((a, w) => a + workoutSetCount(w), 0)}</b><span>set bu hafta · geçen hafta bu zamana {lastSoFar.reduce((a, w) => a + workoutSetCount(w), 0)}</span></div>
+        <div className="stat"><b>{fmtKg(thisWeek.reduce((a, w) => a + workoutVolume(w), 0) / 1000)}</b><span>ton hacim · geçen hafta bu zamana {fmtKg(lastSoFar.reduce((a, w) => a + workoutVolume(w), 0) / 1000)}</span></div>
       </div>
 
       <button className="card" onClick={() => go('progress')}>
         <div className="card-title"><h3>Bu hafta çalışan kaslar</h3><span className="link">Detay ›</span></div>
         <BodyMap levels={levels} />
+        <div className="legend"><span><i style={{ background: 'var(--muscle)' }} />Çalışmadı</span><span><i style={{ background: 'color-mix(in srgb, var(--accent) 45%, var(--muscle))' }} />Az</span><span><i style={{ background: 'var(--accent)' }} />Haftalık hedef</span></div>
+        {!thisWeek.length && <p className="muted tiny">Bu hafta henüz antrenman yok; pazartesi sıfırlanır.</p>}
       </button>
 
       <button className="card" onClick={() => go('progress')}>

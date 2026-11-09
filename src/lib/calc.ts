@@ -65,3 +65,6 @@ export function fmtDate(t: number, withTime = false) {
 export function fmtRest(sec: number) {
   return sec < 60 ? `${sec} sn` : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
 }
+
+/** Türkçe ondalık (virgül) ile sabit basamak. */
+export function fmtNum(x: number, d = 1) { return x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) }
