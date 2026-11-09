@@ -1,4 +1,4 @@
-import { ask, notify } from '../components/Dialog'
+import { ask, askText, notify } from '../components/Dialog'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMeso } from '../lib/meso'
 import { useEffect, useRef, useState } from 'react'
@@ -142,7 +142,15 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
     <div className="sheet workout">
       <div className="sheet-head workout-head">
         <button className="btn ghost" onClick={onMinimize} aria-label="Küçült">Küçült</button>
-        <span className="stack center" style={{ gap: 0 }}><span className="timer">{fmtDuration(now - w.startedAt)}</span><span className="muted tiny">{workoutBurn(w, map, profile, now).kcal} kcal</span></span>
+        <button className="stack center" style={{ gap: 0 }} aria-label="Başlangıç saatini değiştir" onClick={async () => {
+          const d = new Date(w.startedAt)
+          const v = await askText('Antrenmanı başlatmayı unuttuysan gerçek başlangıç saatini gir.', { title: 'Başlangıç saati', value: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, placeholder: 'SS:DD', ok: 'Kaydet' })
+          const m = v?.trim().match(/^(\d{1,2})[:.](\d{2})$/)
+          if (!m) { if (v != null) notify('Saati SS:DD biçiminde gir, örneğin 18:30.'); return }
+          const t = new Date(w.startedAt); t.setHours(+m[1], +m[2], 0, 0)
+          let ts = t.getTime(); if (ts > Date.now()) ts -= 86400000
+          save({ ...w, startedAt: ts })
+        }}><span className="timer">{fmtDuration(now - w.startedAt)}</span><span className="muted tiny">{new Date(w.startedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}'den beri · {workoutBurn(w, map, profile, now).kcal} kcal</span></button>
         <button className="btn primary sm" onClick={finish}>Bitir</button>
       </div>
 

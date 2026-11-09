@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.12.0', date: '9 Kasım 2026', items: [
+    'Hiç yapmadığın harekette başlangıç ağırlığı öneriliyor: o bölgedeki güç seviyen (yoksa genel seviyen) strengthlevel standartlarına göre tahmini 1RM\'ye çevrilip 3 tekrar yedekte kalacak ağırlık hesaplanıyor; standardı olmayan 45 hareket benzer hareketin oranıyla',
+    'Biten antrenmanda "Devam et": antrenman yeniden açılır, hareket ve set ekleyip tekrar bitirebilirsin',
+    'Düzenle artık antrenmanı açmadan yerinde düzenliyor: ad, tarih, başlangıç ve bitiş saati, nabız, not, setlerin ağırlık/tekrar/RIR değerleri, set ve hareket silme',
+    'Antrenman sırasında üstteki süreye dokunup başlangıç saatini değiştirebilirsin (başlatmayı unuttuysan)'
+  ] },
   { v: '0.11.1', date: '9 Kasım 2026', items: [
     'Kas haritası ve haftalık set sayıları takvim haftasına bakıyor (pazartesiden bugüne); son 7 gün geçen haftanın antrenmanlarını da sayıyordu. İlerleme > Kaslar\'da Bu hafta / Geçen hafta / 4 hafta ortalaması',
     'Kas haritası kırmızı yerine mavi tonlarda: kırmızı uyarı gibi okunuyordu',

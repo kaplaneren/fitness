@@ -310,3 +310,9 @@ svg.scrub { touch-action: pan-y; cursor: crosshair; user-select: none; -webkit-u
 .onboard .foot { margin-top: auto; display: flex; gap: 10px; }
 .onboard .foot .btn { flex: 1; }
 .check-list { display: flex; flex-direction: column; gap: 8px; }
+.edit-sets { width: 100%; border-collapse: collapse; }
+.edit-sets th { font-size: 11px; color: var(--ink-2); text-align: left; font-weight: 700; padding: 0 4px 4px; }
+.edit-sets td { padding: 3px 4px; }
+.edit-sets .input.sm { min-height: 38px; padding: 0 8px; width: 100%; min-width: 0; font-variant-numeric: tabular-nums; }
+.edit-sets td:first-child { width: 28px; }
+.edit-sets td:last-child { width: 40px; }

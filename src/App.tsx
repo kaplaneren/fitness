@@ -98,7 +98,7 @@ export default function App() {
           onFinished={async (id) => { if (id) setSummary((await db.workouts.get(id)) ?? null) }}
         />
       )}
-      {summary && <WorkoutDetail w={summary} onClose={() => setSummary(null)} justFinished />}
+      {summary && <WorkoutDetail w={summary} onClose={() => setSummary(null)} justFinished onStarted={() => setWorkoutOpen(true)} />}
       <DialogHost />
     </div>
   )

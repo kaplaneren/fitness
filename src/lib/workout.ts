@@ -2,6 +2,7 @@ import { db, getKV, getProfile, setKV, type Routine, type SetEntry, type Workout
 import { BUILTIN_EXERCISES, FLAG_INFO } from '../data/exercises'
 import { parseRange, recommend } from './progression'
 import { readiness } from './health'
+import { starterWeight } from './starter'
 import { todayKey } from './nutrition'
 import { getMeso, mesoState } from './meso'
 
@@ -33,7 +34,13 @@ export async function makeExercise(exerciseId: string, setCount = 3, restSec?: n
   const last = await lastSetsFor(exerciseId)
   const work = last?.filter((s) => s.type !== 'warmup') ?? []
   const ex = BUILTIN_EXERCISES.find((e) => e.id === exerciseId) ?? (await db.customExercises.get(exerciseId))
-  const adv = recommend(ex, exerciseId, await db.workouts.toArray(), parseRange(repRange), setCount)
+  const all = await db.workouts.toArray()
+  const adv = recommend(ex, exerciseId, all, parseRange(repRange), setCount)
+  // Hiç yapılmamış hareket: güç seviyesine göre başlangıç ağırlığı
+  if (adv?.tone === 'new') {
+    const st = starterWeight(exerciseId, ex, parseRange(repRange), all, profile)
+    if (st) { adv.weight = st.weight; adv.text = st.text }
+  }
   const tm = await trainingMode()
   if (adv && adv.tone !== 'new') {
     const step = ex?.equipment === 'dumbbell' ? 1 : 2.5
@@ -64,6 +71,8 @@ export async function makeExercise(exerciseId: string, setCount = 3, restSec?: n
     } else if (adv.tone === 'up' && prev && adv.weight != null) {
       adv.weight = Math.min(adv.weight, prev + step)
       adv.text = `${adv.text} Kısıtın var (${names}): artış en küçük adımla, her sette 2-3 tekrar pay bırak.`
+    } else if (adv.tone === 'new' && adv.weight != null) {
+      adv.text = `${adv.text} ${FLAG_INFO[hit[0]].tip}`
     } else if (adv.tone === 'new') {
       adv.text = `Kısıtın var (${names}): hafif başla, 12-15 tekrar yapabileceğin ağırlık seç. ${FLAG_INFO[hit[0]].tip}`
     } else {
@@ -73,7 +82,7 @@ export async function makeExercise(exerciseId: string, setCount = 3, restSec?: n
   const n = adv?.sets ?? setCount
   const sets: SetEntry[] = Array.from({ length: n }, (_, i) => {
     const prev = work[i] ?? work[work.length - 1]
-    if (adv && adv.tone !== 'new') return { type: 'normal', done: false, weight: adv.weight, reps: adv.reps[i] ?? adv.reps[adv.reps.length - 1] }
+    if (adv && (adv.tone !== 'new' || adv.weight != null)) return { type: 'normal', done: false, weight: adv.weight, reps: adv.reps[i] ?? adv.reps[adv.reps.length - 1] }
     const planned = repRange?.match(/(\d+)\s*dk/)
     return { type: 'normal', done: false, weight: prev?.weight, reps: prev?.reps, seconds: planned ? +planned[1] * 60 : prev?.seconds }
   })

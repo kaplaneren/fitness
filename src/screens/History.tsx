@@ -11,6 +11,7 @@ import { ExerciseDetail } from './Exercises'
 import { startWorkout } from '../lib/workout'
 import { activityMet } from '../lib/activity'
 import ActivitySheet from '../components/ActivitySheet'
+import WorkoutEditor from '../components/WorkoutEditor'
 import type { Exercise } from '../data/exercises'
 import VersionFooter from '../components/VersionFooter'
 
@@ -209,7 +210,11 @@ function WorkoutCard({ w, onClick, selecting, selected, onRepeat, onShare, onDel
 
 type DetailProps = { w: Workout; onClose: () => void; justFinished?: boolean; onStarted?: () => void }
 export function WorkoutDetail(props: DetailProps) {
-  return props.w.activity ? <ActivityDetail w={props.w} onClose={props.onClose} /> : <GymDetail {...props} />
+  const [cur, setCur] = useState(props.w)
+  const [editing, setEditing] = useState(false)
+  if (cur.activity) return <ActivityDetail w={cur} onClose={props.onClose} />
+  if (editing) return <WorkoutEditor w={cur} onClose={() => setEditing(false)} onSaved={(n) => { setCur(n); setEditing(false) }} />
+  return <GymDetail {...props} w={cur} onEdit={() => setEditing(true)} />
 }
 
 function ActivityDetail({ w, onClose }: { w: Workout; onClose: () => void }) {
@@ -245,7 +250,7 @@ function ActivityDetail({ w, onClose }: { w: Workout; onClose: () => void }) {
   )
 }
 
-function GymDetail({ w, onClose, justFinished, onStarted }: DetailProps) {
+function GymDetail({ w, onClose, justFinished, onStarted, onEdit }: DetailProps & { onEdit: () => void }) {
   const { map } = useExercises()
   const prs = useLiveQuery(async () => {
     const before = (await db.workouts.toArray()).filter((x) => x.startedAt < w.startedAt)
@@ -263,19 +268,24 @@ function GymDetail({ w, onClose, justFinished, onStarted }: DetailProps) {
   const [openEx, setOpenEx] = useState<string | null>(null)
 
   const remove = async () => { if (await ask('Bu antrenman silinsin mi?', { danger: true, ok: 'Sil' })) { await db.workouts.delete(w.id!); onClose() } }
-  const edit = async () => {
+  const resume = async () => {
     if (await db.kv.get('active')) { notify('Önce devam eden antrenmanı bitir.'); return }
-    if (!await ask('Antrenman düzenlemeye açılsın mı? Bitir dediğinde yeniden kaydedilir.')) return
+    if (!await ask('Antrenman yeniden açılsın mı? Süre başlangıç saatinden saymaya devam eder; yeni hareket ve set ekleyip Bitir dediğinde yeniden kaydedilir.', { ok: 'Devam et' })) return
+    // Aradan 30 dakikadan fazla geçtiyse süre kaldığı yerden devam eder (başlangıç ileri kayar); yoksa ara da süreye sayılır
+    const dur = (w.endedAt ?? w.startedAt) - w.startedAt
+    const gap = Date.now() - (w.endedAt ?? w.startedAt)
+    const startedAt = gap > 30 * 60000 ? Date.now() - dur : w.startedAt
     await db.workouts.delete(w.id!)
-    await setKV('active', { ...w, id: undefined, exercises: w.exercises.map((e) => ({ ...e, sets: e.sets.map((s) => ({ ...s, done: true })) })) })
-    onClose()
+    await setKV('active', { ...w, id: undefined, endedAt: undefined, startedAt, exercises: w.exercises.map((e) => ({ ...e, sets: e.sets.map((s) => ({ ...s, done: true })) })) })
+    onClose(); onStarted?.()
+    if (gap > 30 * 60000) notify(`Aradan uzun süre geçtiği için süre kaldığı yerden (${Math.round(dur / 60000)} dk) devam ediyor. Gerekirse üstteki süreye dokunup başlangıç saatini değiştirebilirsin.`)
   }
   return (
     <div className="sheet">
       <div className="sheet-head">
         <button className="btn ghost" onClick={onClose}>Kapat</button>
         <strong className="ellipsis">{justFinished ? 'Tebrikler' : w.name}</strong>
-        <button className="btn ghost" onClick={edit}>Düzenle</button>
+        <button className="btn ghost" onClick={onEdit}>Düzenle</button>
       </div>
       <div className="sheet-body">
         {justFinished && <div className="stack"><span className="eyebrow">Antrenman kaydedildi</span><h1>{w.name}</h1></div>}
@@ -330,6 +340,7 @@ function GymDetail({ w, onClose, justFinished, onStarted }: DetailProps) {
           <button className="btn grow" onClick={() => shareText(workoutText(w, map), w.name)}>Paylaş</button>
           <button className="btn grow" onClick={async () => { if (await repeatWorkout(w)) { onClose(); onStarted?.() } }}>Tekrarla</button>
         </div>
+        <button className="btn block" onClick={resume}>Devam et (antrenmanı yeniden aç)</button>
         <button className="btn danger block" onClick={remove}>Antrenmanı sil</button>
       </div>
       {openEx && map.get(openEx) && <ExerciseDetail ex={map.get(openEx)!} onClose={() => setOpenEx(null)} />}
