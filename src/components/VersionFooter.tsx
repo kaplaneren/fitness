@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.12.4', date: '13 Kasım 2026', items: [
+    'Sayı kutuları düzeltildi: silince "0" kalmıyor, 150\'yi 140 yapınca 0140 olmuyor. Kutuya dokununca içerik seçiliyor, yazdığın eskisinin yerine geçiyor; boş bırakıp çıkarsan eski değer geri geliyor. Virgül ve nokta ikisi de çalışıyor (Profil, ölçümler, gram, rutin set/dinlenme, nabız, uyku/adım, plaka hesabı)',
+    'Aktivite ekle ve antrenman düzenleme: tarih ve saat kutuları iPhone\'da taşıyordu; artık iki sütunda düzgün. "Spor / aktivite ekle" butonu iki satır'
+  ] },
   { v: '0.12.3', date: '13 Kasım 2026', items: [
     'Hareketler her yerde "kilo × tekrar × set" düzeninde: Özet\'teki sıradaki antrenman, rutin görünümü, program sihirbazı, Geçmiş kartları, hareket geçmişi ve paylaşım metni. Aynı setler gruplanıyor (70 kg × 10 × 3 set), farklıysa tekrarlar tek tek yazıyor (70 kg × 10, 10, 8 (3 set))'
   ] },

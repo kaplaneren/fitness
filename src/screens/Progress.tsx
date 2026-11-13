@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
+import NumBox from '../components/NumBox'
 import { db, type Measurement } from '../db'
 import { MUSCLE_NAMES, type Muscle } from '../data/exercises'
 import { useExercises, useProfile } from '../hooks'
@@ -225,7 +226,7 @@ function Body() {
   }
   const field = (k: keyof Measurement, label: string) => (
     <label className="field" htmlFor={`m-${k}`}>{label}
-      <input id={`m-${k}`} type="number" inputMode="decimal" step="0.1" placeholder={lastWith(k) != null ? String(lastWith(k)) : ''} value={(form[k] as number | undefined) ?? ''} onChange={(e) => setForm({ ...form, [k]: e.target.value === '' ? undefined : parseFloat(e.target.value) })} />
+      <NumBox id={`m-${k}`} placeholder={lastWith(k) != null ? String(lastWith(k)).replace('.', ',') : ''} value={form[k] as number | undefined} onChange={(v) => setForm({ ...form, [k]: v })} />
     </label>
   )
   const bfs = bodyFatSeries(ms, profile.sex, profile.bodyweight)

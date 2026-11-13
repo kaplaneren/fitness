@@ -1,5 +1,6 @@
 import { ask, notify } from '../components/Dialog'
 import { useEffect, useRef, useState } from 'react'
+import NumBox from '../components/NumBox'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { backupSummary, db, exportBackup, getProfile, importBackup, setKV, type Profile } from '../db'
 import { FLAG_INFO, type Flag } from '../data/exercises'
@@ -14,7 +15,7 @@ import VersionFooter from '../components/VersionFooter'
 function Num({ id, label, value, onChange, step }: { id: string; label: string; value?: number; onChange: (v: number | undefined) => void; step?: string }) {
   return (
     <label className="field" htmlFor={id}>{label}
-      <input id={id} type="number" inputMode="decimal" step={step} value={value ?? ''} onChange={(e) => onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+      <NumBox id={id} integer={step == null} value={value} onChange={onChange} />
     </label>
   )
 }
@@ -71,11 +72,11 @@ export default function ProfileScreen() {
       <div className="card">
         <h3>Ölçüler</h3>
         <div className="fields">
-          <Num id="p-bw" label="Kilo (kg)" value={profile.bodyweight} step="0.1" onChange={(v) => update({ bodyweight: v ?? 0 })} />
-          <Num id="p-h" label="Boy (cm)" value={profile.height} onChange={(v) => update({ height: v ?? 0 })} />
-          <Num id="p-age" label="Yaş" value={profile.age} onChange={(v) => update({ age: v ?? 0 })} />
+          <Num id="p-bw" label="Kilo (kg)" value={profile.bodyweight} step="0.1" onChange={(v) => v && update({ bodyweight: v })} />
+          <Num id="p-h" label="Boy (cm)" value={profile.height} onChange={(v) => v && update({ height: v })} />
+          <Num id="p-age" label="Yaş" value={profile.age} onChange={(v) => v && update({ age: v })} />
           <Num id="p-tw" label="Hedef kilo (kg)" value={profile.targetWeight} step="0.1" onChange={(v) => update({ targetWeight: v })} />
-          <Num id="p-wt" label="Gün/hafta" value={profile.weeklyTarget} onChange={(v) => update({ weeklyTarget: v ?? 3 })} />
+          <Num id="p-wt" label="Gün/hafta" value={profile.weeklyTarget} onChange={(v) => v && update({ weeklyTarget: v })} />
         </div>
         <div className="seg">
           <button className={profile.sex === 'm' ? 'on' : ''} onClick={() => update({ sex: 'm' })}>Erkek</button>
@@ -91,9 +92,9 @@ export default function ProfileScreen() {
           <button className={profile.goal === 'bulk' ? 'on' : ''} onClick={() => update({ goal: 'bulk' })}>Kas</button>
         </div>
         <div className="fields">
-          <Num id="p-steps" label="Günlük adım" value={profile.steps} onChange={(v) => update({ steps: v ?? 0 })} />
-          <Num id="p-kw" label="Ağırlık kcal/sa" value={profile.kcalWeights} onChange={(v) => update({ kcalWeights: v ?? 0 })} />
-          <Num id="p-kc" label="Kardiyo kcal/sa" value={profile.kcalCardio} onChange={(v) => update({ kcalCardio: v ?? 0 })} />
+          <Num id="p-steps" label="Günlük adım" value={profile.steps} onChange={(v) => v != null && update({ steps: v })} />
+          <Num id="p-kw" label="Ağırlık kcal/sa" value={profile.kcalWeights} onChange={(v) => v != null && update({ kcalWeights: v })} />
+          <Num id="p-kc" label="Kardiyo kcal/sa" value={profile.kcalCardio} onChange={(v) => v != null && update({ kcalCardio: v })} />
         </div>
         <p className="small">Diyet hedefi: bazal metabolizma <b>{t.bmr}</b> + günlük yaşam <b>{t.base - t.bmr}</b>{profile.eatBack ? <> + adım <b>{t.steps}</b> + antrenman ortalaması <b>{t.training}</b></> : ''} {profile.goal === 'cut' ? '− 450' : profile.goal === 'bulk' ? '+ 250' : ''} → <b>{t.kcal}</b> kcal, <b>{t.protein}</b> g protein, <b>{t.carbs}</b> g karbonhidrat, <b>{t.fat}</b> g yağ.</p>
         {!profile.eatBack && <p className="small">Adım ({t.steps} kcal) ve antrenman (ortalama {t.training} kcal) diyetten düşülmez, ekstra açık olur. Toplam harcama ≈ {t.tdee} kcal, günlük açık ≈ <b>{t.deficit}</b> kcal, haftada ≈ <b>{t.weeklyKg.toLocaleString('tr-TR')} kg</b>.</p>}
@@ -111,7 +112,7 @@ export default function ProfileScreen() {
           <Num id="p-kcal" label="Kalori" value={profile.kcalTarget} onChange={(v) => update({ kcalTarget: v })} />
           <Num id="p-pro" label="Protein (g)" value={profile.proteinTarget} onChange={(v) => update({ proteinTarget: v })} />
           <Num id="p-fat" label="Yağ (g)" value={profile.fatTarget} onChange={(v) => update({ fatTarget: v })} />
-          <Num id="p-water" label="Su (bardak)" value={profile.waterTarget} onChange={(v) => update({ waterTarget: v ?? 8 })} />
+          <Num id="p-water" label="Su (bardak)" value={profile.waterTarget} onChange={(v) => v && update({ waterTarget: v })} />
         </div>
       </div>
 
@@ -146,8 +147,8 @@ export default function ProfileScreen() {
       <div className="card">
         <h3>Antrenman ayarları</h3>
         <div className="fields">
-          <Num id="p-rest" label="Dinlenme (sn)" value={profile.defaultRest} onChange={(v) => update({ defaultRest: v ?? 90 })} />
-          <Num id="p-bar" label="Bar ağırlığı (kg)" value={profile.barWeight} onChange={(v) => update({ barWeight: v ?? 20 })} />
+          <Num id="p-rest" label="Dinlenme (sn)" value={profile.defaultRest} onChange={(v) => v && update({ defaultRest: v })} />
+          <Num id="p-bar" label="Bar ağırlığı (kg)" value={profile.barWeight} onChange={(v) => v != null && update({ barWeight: v })} />
         </div>
         <label className="toggle">
           <input type="checkbox" checked={profile.dynamicRest} onChange={() => update({ dynamicRest: !profile.dynamicRest })} />

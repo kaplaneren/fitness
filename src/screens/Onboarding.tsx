@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getProfile, setKV, type Profile } from '../db'
+import NumBox from '../components/NumBox'
 import { FLAG_INFO, type Flag } from '../data/exercises'
 import { useProfile } from '../hooks'
 import type { Goal } from '../lib/program'
@@ -15,7 +16,7 @@ const GOAL_TO_DIET: Record<Goal, Profile['goal']> = { yag: 'cut', kas: 'bulk', g
 function Num({ label, value, step, onChange }: { label: string; value: number; step?: string; onChange: (v: number) => void }) {
   return (
     <label className="field">{label}
-      <input type="number" inputMode="decimal" step={step} defaultValue={value} onChange={(e) => { const v = parseFloat(e.target.value); if (v > 0) onChange(v) }} />
+      <NumBox integer={step == null} value={value} onChange={(v) => { if (v && v > 0) onChange(v) }} />
     </label>
   )
 }

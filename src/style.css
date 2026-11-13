@@ -321,3 +321,10 @@ svg.scrub { touch-action: pan-y; cursor: crosshair; user-select: none; -webkit-u
 
 .level-scale div.on.l0 { background: var(--lv0); } .level-scale div.on.l1 { background: var(--lv1); } .level-scale div.on.l2 { background: var(--lv2); }
 .level-scale div.on.l3 { background: var(--lv3); } .level-scale div.on.l4 { background: var(--lv4); }
+/* Tek başına alan (fields dışında) aynı görünsün */
+.field > input:not([type=checkbox]) { width: 100%; min-width: 0; height: 44px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); font-size: 16px; font-weight: 700; color: var(--ink); -webkit-appearance: none; appearance: none; }
+.fields.two { grid-template-columns: 1fr 1fr; }
+/* iOS tarih/saat kutuları kendi genişliğini dayatıp hücreden taşıyordu */
+input[type=date], input[type=time] { display: block; min-width: 0; max-width: 100%; text-align: left; }
+input[type=date]::-webkit-date-and-time-value, input[type=time]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+.btn.stack-btn { flex-direction: column; gap: 0; min-height: 52px; line-height: 1.2; }

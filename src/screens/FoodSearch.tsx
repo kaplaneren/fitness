@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import NumBox from '../components/NumBox'
 import { db, getKV, setKV, type DiaryEntry, type Food, type Meal, type MealTemplate } from '../db'
 import { BASE_FOODS, FOOD_CATEGORIES } from '../data/foods'
 import { MEALS, fetchOffProduct, inPreview, searchFoods, normalizeTr, portion, searchOff } from '../lib/nutrition'
@@ -174,7 +175,7 @@ function AmountSheet({ food, day, meal, onClose, onAdded, entry }: { food: Food;
           </div>
         ) : (
           <>
-            <label className="inline">Miktar <input id="amt-g" type="number" inputMode="decimal" value={grams} onChange={(e) => setGrams(+e.target.value || 0)} /> g</label>
+            <label className="inline">Miktar <NumBox id="amt-g" value={grams || undefined} onChange={(v) => setGrams(v ?? 0)} /> g</label>
             <div className="chips wrap">
               {[25, 50, 100, 150, 200, 250].map((x) => <button key={x} className={`chip ${grams === x ? 'on' : ''}`} onClick={() => setGrams(x)}>{x} g</button>)}
             </div>
@@ -322,7 +323,7 @@ function Recipe({ foods, onSaved }: { foods: Food[]; onSaved: (f: Food) => void 
       {items.map((it, i) => (
         <div key={i} className="row-between small" style={{ gap: 8 }}>
           <span className="grow ellipsis">{it.food.name}</span>
-          <input className="num" style={{ width: 70 }} inputMode="decimal" value={it.g} onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, g: parseFloat(e.target.value) || 0 } : x)))} aria-label="gram" />
+          <NumBox className="num" style={{ width: 70 }} value={it.g || undefined} onChange={(v) => setItems(items.map((x, j) => (j === i ? { ...x, g: v ?? 0 } : x)))} aria-label="gram" />
           <span className="muted tiny">g</span>
           <button className="link muted" onClick={() => setItems(items.filter((_, j) => j !== i))} aria-label="Kaldır">✕</button>
         </div>

@@ -81,7 +81,7 @@ export default function StartScreen({ onStarted }: { onStarted: () => void }) {
           <button className="btn grow" onClick={() => setWizard(true)}>Program oluştur</button>
           <button className="btn grow" onClick={() => setLibrary(true)}>Hareketler</button>
         </div>
-        <button className="btn block" onClick={() => setActivity(true)}>+ Spor / aktivite ekle <span className="muted small">(tenis, yüzme, koşu…)</span></button>
+        <button className="btn block stack-btn" onClick={() => setActivity(true)}><span>+ Spor / aktivite ekle</span><span className="muted tiny">tenis, yüzme, koşu, yürüyüş…</span></button>
         <button className="link small" onClick={importPasted}>Paylaşılan programı içe aktar</button>
       </div>
 

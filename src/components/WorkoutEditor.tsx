@@ -56,14 +56,14 @@ export default function WorkoutEditor({ w, onClose, onSaved }: { w: Workout; onC
         <div className="card">
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} aria-label="Antrenman adı" />
           <label className="field">Tarih<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
-          <div className="fields">
+          <div className="fields two">
             <label className="field">Başlangıç<input type="time" value={start} onChange={(e) => setStart(e.target.value)} /></label>
             <label className="field">Bitiş<input type="time" value={end} onChange={(e) => setEnd(e.target.value)} /></label>
           </div>
           <p className="muted tiny">Süre: {Number.isFinite(mins) ? `${Math.floor(mins / 60) ? `${Math.floor(mins / 60)} sa ` : ''}${mins % 60} dk` : '–'}. Yakılan kalori süreye göre yeniden hesaplanır.</p>
           <div className="fields">
-            <label className="field">Ort. nabız<input type="number" inputMode="numeric" value={hrAvg} onChange={(e) => setHrAvg(e.target.value)} /></label>
-            <label className="field">Maks. nabız<input type="number" inputMode="numeric" value={hrMax} onChange={(e) => setHrMax(e.target.value)} /></label>
+            <label className="field">Ort. nabız<input inputMode="numeric" value={hrAvg} onChange={(e) => setHrAvg(e.target.value)} /></label>
+            <label className="field">Maks. nabız<input inputMode="numeric" value={hrMax} onChange={(e) => setHrMax(e.target.value)} /></label>
           </div>
           <textarea className="input" rows={2} placeholder="Not" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>

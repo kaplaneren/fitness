@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
+import NumBox from '../components/NumBox'
 import { db, getKV, setKV, type Checkin } from '../db'
 import { useExercises, useProfile } from '../hooks'
 import { DAY } from '../lib/analysis'
@@ -50,10 +51,10 @@ export function CheckinCard() {
         <div className="stack" style={{ gap: 10 }}>
           <div className="fields">
             <label className="field" htmlFor="ci-sleep">Uyku (saat)
-              <input id="ci-sleep" type="number" inputMode="decimal" step="0.5" value={c.sleepHours ?? ''} onChange={(e) => set('sleepHours', e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+              <NumBox id="ci-sleep" value={c.sleepHours} onChange={(v) => set('sleepHours', v)} />
             </label>
             <label className="field" htmlFor="ci-steps">Adım (dün/bugün)
-              <input id="ci-steps" type="number" inputMode="numeric" value={c.steps ?? ''} onChange={(e) => set('steps', e.target.value === '' ? undefined : parseInt(e.target.value))} />
+              <NumBox id="ci-steps" integer value={c.steps} onChange={(v) => set('steps', v)} />
             </label>
           </div>
           <Scale label="Uyku kalitesi" k="sleepQuality" c={c} set={set} hint={['kötü', 'çok iyi']} />

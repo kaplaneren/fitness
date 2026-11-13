@@ -1,5 +1,6 @@
 import { ask, askText, notify } from '../components/Dialog'
 import { useLiveQuery } from 'dexie-react-hooks'
+import NumBox from '../components/NumBox'
 import { useMeso } from '../lib/meso'
 import { useEffect, useRef, useState } from 'react'
 import { db, setKV, type SetEntry, type SetType, type Workout, type WorkoutExercise } from '../db'
@@ -225,7 +226,7 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
                     setMenu(null)
                   }}>{ex.sets.some((x) => x.side) ? 'Sağ/sol ayrımını kaldır' : 'Sağ ve sol ayrı kaydet'}</button>
                   <label className="inline">Dinlenme
-                    <input type="number" inputMode="numeric" value={ex.restSec} onChange={(e) => updEx(i, (x) => ({ ...x, restSec: +e.target.value || 0 }))} /> sn
+                    <NumBox integer value={ex.restSec} onChange={(v) => updEx(i, (x) => ({ ...x, restSec: v ?? 0 }))} /> sn
                   </label>
                   <button className="danger" onClick={() => { save({ ...w, exercises: w.exercises.filter((_, j) => j !== i) }); setMenu(null) }}>Hareketi kaldır</button>
                 </div>
@@ -301,9 +302,9 @@ export default function ActiveWorkout({ workout, onMinimize, onFinished }: { wor
 
         <div className="card">
           <div className="fields">
-            <label>Ort. nabız<input type="number" inputMode="numeric" value={w.heartRateAvg ?? ''} onChange={(e) => save({ ...w, heartRateAvg: +e.target.value || undefined })} /></label>
-            <label>Maks. nabız<input type="number" inputMode="numeric" value={w.heartRateMax ?? ''} onChange={(e) => save({ ...w, heartRateMax: +e.target.value || undefined })} /></label>
-            <label>Kilo (kg)<input type="number" inputMode="decimal" placeholder={String(profile.bodyweight)} value={w.bodyweight ?? ''} onChange={(e) => save({ ...w, bodyweight: parseFloat(e.target.value.replace(',', '.')) || undefined })} /></label>
+            <label>Ort. nabız<NumBox integer value={w.heartRateAvg} onChange={(v) => save({ ...w, heartRateAvg: v || undefined })} /></label>
+            <label>Maks. nabız<NumBox integer value={w.heartRateMax} onChange={(v) => save({ ...w, heartRateMax: v || undefined })} /></label>
+            <label>Kilo (kg)<NumBox placeholder={String(profile.bodyweight)} value={w.bodyweight} onChange={(v) => save({ ...w, bodyweight: v || undefined })} /></label>
           </div>
           <textarea className="input" placeholder="Antrenman notu (ağrı, his, enerji…)" value={w.note ?? ''} onChange={(e) => save({ ...w, note: e.target.value })} />
         </div>
@@ -364,7 +365,7 @@ function PlateModal({ initial, onClose }: { initial: number; onClose: () => void
       <div className="dialog" onClick={(e) => e.stopPropagation()}>
         <h2>Plaka hesaplayıcı</h2>
         <label className="inline">Toplam
-          <input type="number" inputMode="decimal" value={total} onChange={(e) => setTotal(+e.target.value || 0)} /> kg
+          <NumBox value={total || undefined} onChange={(v) => setTotal(v ?? 0)} /> kg
         </label>
         <p className="muted small">Bar: {profile.barWeight} kg · Her tarafa:</p>
         <div className="plates">

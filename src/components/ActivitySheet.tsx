@@ -55,11 +55,13 @@ export default function ActivitySheet({ w, onClose }: { w?: Workout; onClose: ()
           </div>
         </div>
         <div className="card">
-          <div className="fields">
+          <div className="fields two">
             <label className="field">Tarih<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
             <label className="field">Başlangıç<input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></label>
-            <label className="field">Süre (dk)<input type="number" inputMode="numeric" value={min} onChange={(e) => setMin(e.target.value)} /></label>
-            {def.distance && <label className="field">Mesafe (km)<input type="number" inputMode="decimal" step="0.1" placeholder="isteğe bağlı" value={km} onChange={(e) => setKm(e.target.value)} /></label>}
+          </div>
+          <div className="fields two">
+            <label className="field">Süre (dk)<input inputMode="numeric" value={min} onChange={(e) => setMin(e.target.value)} /></label>
+            {def.distance && <label className="field">Mesafe (km)<input inputMode="decimal" step="0.1" placeholder="isteğe bağlı" value={km} onChange={(e) => setKm(e.target.value)} /></label>}
           </div>
           <h3>Yoğunluk</h3>
           <div className="seg">
@@ -67,7 +69,7 @@ export default function ActivitySheet({ w, onClose }: { w?: Workout; onClose: ()
           </div>
           <p className="muted tiny">{def.hint[intensity === 'hafif' ? 0 : intensity === 'orta' ? 1 : 2]}{info.km && ['run', 'walk', 'cycle'].includes(type) ? ' · mesafe girildiği için hızdan hesaplanır' : ''}</p>
           <div className="fields">
-            <label className="field">Ort. nabız<input type="number" inputMode="numeric" placeholder="isteğe bağlı" value={hr} onChange={(e) => setHr(e.target.value)} /></label>
+            <label className="field">Ort. nabız<input inputMode="numeric" placeholder="isteğe bağlı" value={hr} onChange={(e) => setHr(e.target.value)} /></label>
           </div>
           <textarea className="input" rows={2} placeholder="Not (isteğe bağlı)" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
