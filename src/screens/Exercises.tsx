@@ -8,7 +8,7 @@ import { GroupChips, useFilteredExercises } from '../components/ExercisePicker'
 import FlagBadges from '../components/FlagBadges'
 import BodyMap from '../components/BodyMap'
 import LineChart from '../components/LineChart'
-import { e1rm, fmtDate, fmtKg } from '../lib/calc'
+import { e1rm, fmtDate, fmtKg, fmtSets } from '../lib/calc'
 import { repMaxes } from '../lib/insights'
 import { DAY, LEVELS, hasStandard, levelOf, liftScore, nextLevelWeight, standardsFor, trend, workingWeight } from '../lib/analysis'
 import { LevelScale } from './Progress'
@@ -191,7 +191,7 @@ export function ExerciseDetail({ ex, onClose }: { ex: Exercise; onClose: () => v
           {[...history].reverse().slice(0, 30).map((h, i) => (
             <div key={i} className="hist-row">
               <span className="muted small">{fmtDate(h.date)}</span>
-              <span className="mono">{h.sets.map((s) => (s.seconds != null ? `${Math.round(s.seconds / 60)} dk` : `${s.weight ? fmtKg(s.weight) + '×' : ''}${s.reps ?? ''}`)).join('  ')}</span>
+              <span className="mono">{fmtSets(h.sets)}</span>
             </div>
           ))}
         </div>

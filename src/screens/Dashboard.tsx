@@ -4,7 +4,7 @@ import { db, type Routine } from '../db'
 import { useActiveWorkout, useDayEnergy, useExercises, useProfile } from '../hooks'
 import { CheckinCard } from './Health'
 import { DAY, WEEKLY_RANGE, levelOf, muscleSets, strengthProfile } from '../lib/analysis'
-import { fmtDate, fmtKg, workoutSetCount, workoutVolume } from '../lib/calc'
+import { fmtDate, fmtKg, workoutSetCount, workoutVolume, fmtPlan } from '../lib/calc'
 import { sumEntries, todayKey } from '../lib/nutrition'
 import { startWorkout } from '../lib/workout'
 import { parseRange, recommend } from '../lib/progression'
@@ -109,7 +109,7 @@ export default function Dashboard({ go, onStarted }: { go: (t: Tab) => void; onS
                   <div key={i} className="row-between small" style={{ alignItems: 'flex-start' }}>
                     <span className="grow">{map.get(e.exerciseId)?.name}</span>
                     <span className="mono" style={{ whiteSpace: 'nowrap', fontWeight: 700, color: adv?.tone === 'up' ? 'var(--good)' : adv?.tone === 'down' ? 'var(--warn)' : undefined }}>
-                      {adv?.weight ? `${adv.tone === 'up' ? '▲ ' : adv.tone === 'down' ? '▼ ' : ''}${fmtKg(adv.weight)} kg × ${adv.reps[0]}` : `${e.sets} × ${e.reps}`}
+                      {adv?.weight ? `${adv.tone === 'up' ? '▲ ' : adv.tone === 'down' ? '▼ ' : ''}${fmtPlan(adv.reps[0], adv.sets, adv.weight)}` : fmtPlan(e.reps, e.sets)}
                     </span>
                   </div>
                 )

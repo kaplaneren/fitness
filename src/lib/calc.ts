@@ -68,3 +68,29 @@ export function fmtRest(sec: number) {
 
 /** Türkçe ondalık (virgül) ile sabit basamak. */
 export function fmtNum(x: number, d = 1) { return x.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) }
+
+/** Plan gösterimi: "kilo × tekrar × set". Süreli harekette "5 dk", tek set ise set yazılmaz. */
+export function fmtPlan(reps: string | number | undefined, sets: number, weight?: number) {
+  const r = String(reps ?? '')
+  if (/dk|sn/.test(r) && sets <= 1) return r
+  return `${weight ? `${fmtKg(weight)} kg × ` : ''}${r} × ${sets} set`
+}
+
+/** Yapılmış setlerin özeti, "kilo × tekrar × set" düzeninde. Aynı setler gruplanır:
+ *  70 kg × 10 × 3 set · 70 kg × 10, 10, 8 (3 set) · 60 kg × 12 + 70 kg × 8 × 2 set */
+export function fmtSets(sets: { weight?: number; reps?: number; seconds?: number }[]) {
+  if (!sets.length) return ''
+  if (sets.every((s) => s.seconds != null && s.reps == null)) {
+    const total = Math.round(sets.reduce((a, s) => a + (s.seconds ?? 0), 0) / 60)
+    return sets.length > 1 ? `${total} dk (${sets.length} set)` : `${total} dk`
+  }
+  const w = (x?: number) => (x ? `${fmtKg(x)} kg × ` : '')
+  const groups: { weight?: number; reps: number[] }[] = []
+  for (const s of sets) {
+    const g = groups[groups.length - 1]
+    if (g && g.weight === s.weight) g.reps.push(s.reps ?? 0); else groups.push({ weight: s.weight, reps: [s.reps ?? 0] })
+  }
+  return groups.map((g) => g.reps.every((r) => r === g.reps[0])
+    ? `${w(g.weight)}${g.reps[0]} × ${g.reps.length} set`
+    : `${w(g.weight)}${g.reps.join(', ')} (${g.reps.length} set)`).join(' + ')
+}

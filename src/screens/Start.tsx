@@ -3,7 +3,7 @@ import type { Exercise } from '../data/exercises'
 import { importProgram, programCode, shareLink } from '../lib/share'
 import { shareText } from './History'
 import QrSheet from '../components/QrSheet'
-import { fmtRest } from '../lib/calc'
+import { fmtRest, fmtPlan } from '../lib/calc'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { db, type Routine } from '../db'
@@ -158,7 +158,7 @@ function programText(list: Routine[], title: string, map: Map<string, Exercise>)
   const lines = [`📋 ${title}`]
   list.forEach((r, i) => {
     if (list.length > 1 || r.name !== title) lines.push('', r.name); else lines.push('')
-    for (const e of r.exercises) lines.push(`• ${map.get(e.exerciseId)?.name ?? e.exerciseId}: ${e.sets} × ${e.reps}${e.superset ? ` (süperset ${e.superset.toUpperCase()})` : ''}`)
+    for (const e of r.exercises) lines.push(`• ${map.get(e.exerciseId)?.name ?? e.exerciseId}: ${fmtPlan(e.reps, e.sets)}${e.superset ? ` (süperset ${e.superset.toUpperCase()})` : ''}`)
   })
   return lines.join('\n')
 }
@@ -179,7 +179,7 @@ function RoutineView({ r, map, last, onClose, onStart, onEdit, onShare, onQr }: 
               {r.exercises.map((e, j) => (
                 <tr key={j}>
                   <td>{map.get(e.exerciseId)?.name ?? e.exerciseId}{e.superset && <span className="ss-tag" style={{ marginLeft: 6 }}>S{e.superset.toUpperCase()}</span>}</td>
-                  <td className="mono" style={{ whiteSpace: 'nowrap' }}>{e.sets} × {e.reps}</td>
+                  <td className="mono" style={{ whiteSpace: 'nowrap' }}>{fmtPlan(e.reps, e.sets)}</td>
                   <td className="muted tiny" style={{ whiteSpace: 'nowrap' }}>{e.restSec ? fmtRest(e.restSec) : ''}</td>
                 </tr>
               ))}

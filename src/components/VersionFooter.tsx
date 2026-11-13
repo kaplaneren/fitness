@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { notify } from './Dialog'
 
 export const CHANGELOG: { v: string; date: string; items: string[] }[] = [
+  { v: '0.12.3', date: '13 Kasım 2026', items: [
+    'Hareketler her yerde "kilo × tekrar × set" düzeninde: Özet\'teki sıradaki antrenman, rutin görünümü, program sihirbazı, Geçmiş kartları, hareket geçmişi ve paylaşım metni. Aynı setler gruplanıyor (70 kg × 10 × 3 set), farklıysa tekrarlar tek tek yazıyor (70 kg × 10, 10, 8 (3 set))'
+  ] },
   { v: '0.12.2', date: '9 Kasım 2026', items: [
     'Haftalık kıyas gün bazında: bugünün antrenmanı da sayılıyor, geçen haftanın aynı gününün tamamıyla kıyaslanıyor; hafta sürerken yanıltıcı artı/eksi okları gösterilmiyor'
   ] },

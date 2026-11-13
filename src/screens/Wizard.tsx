@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { fmtPlan } from '../lib/calc'
 import { db } from '../db'
 import { useExercises, useProfile } from '../hooks'
 import { DURATION_MIN, MACHINES, buildPlan, type Adherence, type Duration, type Goal, type Machine, type Plan, type WarmupType } from '../lib/program'
@@ -125,7 +126,7 @@ export default function Wizard({ onClose, initialGoal, onSaved }: { onClose: () 
                     {d.exercises.map((e, j) => (
                       <tr key={j}>
                         <td>{map.get(e.exerciseId)?.name}{e.superset && <span className="ss-tag" style={{ marginLeft: 6 }}>S{e.superset.toUpperCase()}</span>}</td>
-                        <td className="mono" style={{ whiteSpace: 'nowrap' }}>{e.sets} × {e.reps}</td>
+                        <td className="mono" style={{ whiteSpace: 'nowrap' }}>{fmtPlan(e.reps, e.sets)}</td>
                       </tr>
                     ))}
                   </tbody>
